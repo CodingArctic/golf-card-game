@@ -1,0 +1,47 @@
+package service
+
+import (
+	"net/http"
+	"strings"
+)
+
+// SessionMiddleware ensures that requests have a valid 'session' cookie
+// except for public endpoints like /login, /register, and static assets
+func SessionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimSuffix(r.URL.Path, "/")
+
+		// Allow unauthenticated access for public endpoints
+		if path == "" ||
+			path == "/api/login" ||
+			path == "/api/register" ||
+			path == "/api/logout" ||
+			path == "/login" ||
+			path == "/register" ||
+			strings.HasPrefix(r.URL.Path, "/static/") ||
+			strings.HasPrefix(r.URL.Path, "/_next/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		cookie, err := r.Cookie("session")
+		if err != nil || cookie.Value == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"missing or invalid session"}`))
+			return
+		}
+
+		// Validate the session token
+		_, err = userService.ValidateSession(r.Context(), cookie.Value)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"invalid or expired session"}`))
+			return
+		}
+
+		// Continue to the underlying handler
+		next.ServeHTTP(w, r)
+	})
+}
