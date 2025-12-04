@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { registerUser } from '@/utils/api';
 import '../globals.css';
+import { IoIosArrowBack } from 'react-icons/io';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -114,15 +115,14 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
-        <Link
-          href={'/'}
-        >
-          <button className='flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer'>
-            Back
-          </button>
-        </Link>
-        <div>
-          <h2 className="mt-4 text-center text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+        <div className="relative">
+          <Link
+            href={'/'}
+            className="absolute left-0 top-0 flex justify-center py-2 px-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
+          >
+            <IoIosArrowBack fontSize={24} />
+          </Link>
+          <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
             Create your account
           </h2>
         </div>

@@ -1,5 +1,24 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Authentication Pages
+
+### `/login` - User Login
+- **Fields**: Username, Password
+- **Backend**: `POST /api/login`
+- **Success**: Redirects to home page with session cookie
+- **Features**: Shows success message when redirected from registration
+
+### `/register` - User Registration
+- **Fields**: Username, Email, Password, Confirm Password
+- **Backend**: `POST /api/register`
+- **Validation**: 
+  - Username: minimum 3 characters
+  - Email: valid email format
+  - Password: minimum 8 characters
+  - Confirm Password: must match password
+- **Success**: Redirects to login page with success message
+- **Error Handling**: Shows clean error messages for duplicate username/email
+
 ## Getting Started
 
 First, run the development server:

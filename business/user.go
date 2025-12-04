@@ -19,9 +19,13 @@ func NewUserService(userRepo database.UserRepository) *UserService {
 	return &UserService{userRepo: userRepo}
 }
 
-func (s *UserService) GetUser(ctx context.Context, uuid string) (*database.User, error) {
+func (s *UserService) GetUser(ctx context.Context, username string) (*database.User, error) {
 	// Add business logic here if needed
-	return s.userRepo.GetUserByUsername(ctx, uuid)
+	return s.userRepo.GetUserByUsername(ctx, username)
+}
+
+func (s *UserService) GetUserByID(ctx context.Context, userID string) (*database.User, error) {
+	return s.userRepo.GetUserByID(ctx, userID)
 }
 
 // RegisterUser creates a new user with a hashed password
