@@ -66,6 +66,6 @@ func main() {
 
 	// If we hadn't created a custom mux to enable middleware,
 	// the second param would be nil, which uses http.DefaultServeMux.
+	log.Print("listening on http://localhost:8080")
 	log.Fatal(http.ListenAndServe("localhost:8080", protected))
-
 }
