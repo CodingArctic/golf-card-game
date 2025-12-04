@@ -4,13 +4,28 @@ interface ApiResponse<T> {
 }
 
 export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  username: string;
   email: string;
   password: string;
 }
 
 // Simple response structure for custom token authentication
 export interface LoginResponse {
-  status: string;
+  message: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  user: {
+    user_id: string;
+    username: string;
+    email: string;
+  };
 }
 
 export interface ApiError {
@@ -79,4 +94,28 @@ export async function loginUser(
   });
 }
 
-// No client-side token storage or logout needed; rely on backend cookie management
+/**
+ * Registers a new user account
+ * @param credentials - User registration credentials
+ * @returns A promise that resolves to the registration response
+ */
+export async function registerUser(
+  credentials: RegisterCredentials
+): Promise<ApiResponse<RegisterResponse>> {
+  return fetchApi<RegisterResponse>('/register', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  });
+}
+
+/**
+ * Logs out the current user
+ * @returns A promise that resolves to the logout response
+ */
+export async function logoutUser(): Promise<ApiResponse<{ message: string }>> {
+  return fetchApi<{ message: string }>('/logout', {
+    method: 'POST',
+  });
+}
+
+// No client-side token storage needed; rely on backend cookie management
