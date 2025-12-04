@@ -104,6 +104,7 @@ func (s *UserService) LogoutUser(ctx context.Context, token string) error {
 }
 
 // generateSecureToken creates a cryptographically secure random token
+// TODO - replace with specific token generation methods discussed in class
 func generateSecureToken() (string, error) {
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
