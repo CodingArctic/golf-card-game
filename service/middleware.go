@@ -1,9 +1,14 @@
 package service
 
 import (
+	"context"
 	"net/http"
 	"strings"
 )
+
+type contextKey string
+
+const userIDKey contextKey = "userID"
 
 // SessionMiddleware ensures that requests have a valid 'session' cookie
 // except for public endpoints like /login, /register, and static assets
@@ -33,7 +38,7 @@ func SessionMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Validate the session token
-		_, err = userService.ValidateSession(r.Context(), cookie.Value)
+		userID, err := userService.ValidateSession(r.Context(), cookie.Value)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -41,7 +46,9 @@ func SessionMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Add userID to context
+		ctx := context.WithValue(r.Context(), userIDKey, userID)
 		// Continue to the underlying handler
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
