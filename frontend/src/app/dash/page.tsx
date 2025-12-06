@@ -149,7 +149,6 @@ export default function DashPage() {
         };
 
         wsRef.current.onmessage = (event) => {
-            console.log('Received message:', event.data);
             try {
                 const rawMessage = JSON.parse(event.data);
                 // Transform the server's message format to our Message interface
