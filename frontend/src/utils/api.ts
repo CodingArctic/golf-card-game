@@ -44,8 +44,7 @@ export async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  // Use relative URL - same origin as the static site
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
   const defaultHeaders: HeadersInit = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -208,5 +207,3 @@ export async function listGames(): Promise<ApiResponse<GameListResponse>> {
     method: 'GET',
   });
 }
-
-// No client-side token storage needed; rely on backend cookie management
