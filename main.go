@@ -57,9 +57,8 @@ func main() {
 	// mux.HandleFunc("/api/next", service.NextTurnHandler)
 	mux.HandleFunc("/api/ws/chat", service.ChatHandler)
 
-	// Serve Next.js static export from the 'out' directory
-	fs := http.FileServer(http.Dir("./frontend/out"))
-	mux.Handle("/", fs)
+	// Serve static files from frontend/out directory with custom 404 handling
+	mux.Handle("/", service.NotFoundHandler(http.Dir("./frontend/out")))
 
 	// Wrap with session middleware
 	protected := service.SessionMiddleware(mux)
