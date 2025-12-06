@@ -15,6 +15,6 @@ func jsonResponse(w http.ResponseWriter, status int, payload interface{}) {
 	// scope the err variable to the 'if' block to avoid shadowing issues
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		log.Printf("json encode error: %v", err)
-		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+		http.Error(w, `{"error":"Internal error"}`, http.StatusInternalServerError)
 	}
 }
