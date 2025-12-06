@@ -31,18 +31,16 @@ func SessionMiddleware(next http.Handler) http.Handler {
 
 		cookie, err := r.Cookie("session")
 		if err != nil || cookie.Value == "" {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"Missing or invalid session"}`))
+			// Redirect to homepage for unauthenticated requests to protected pages
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 
 		// Validate the session token
 		userID, err := userService.ValidateSession(r.Context(), cookie.Value)
 		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"Invalid or expired session"}`))
+			// Redirect to homepage for invalid/expired sessions
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 		// Add userID to context
