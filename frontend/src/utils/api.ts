@@ -44,7 +44,8 @@ export async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+  // Use relative URL - same origin as the static site
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
   const defaultHeaders: HeadersInit = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -115,6 +116,96 @@ export async function registerUser(
 export async function logoutUser(): Promise<ApiResponse<{ message: string }>> {
   return fetchApi<{ message: string }>('/logout', {
     method: 'POST',
+  });
+}
+
+// Game API functions
+
+export interface Game {
+  gameId: number;
+  publicId: string;
+  createdBy: string;
+  createdAt: string;
+  status: string;
+  maxPlayers: number;
+  playerCount: number;
+}
+
+export interface GameInvitation {
+  gameId: number;
+  publicId: string;
+  gamePlayerId: number;
+  invitedBy: string;
+  invitedByUsername: string;
+  createdAt: string;
+}
+
+export interface GameListResponse {
+  invitations: GameInvitation[];
+  activeGames: Game[];
+}
+
+/**
+ * Creates a new game
+ * @returns A promise that resolves to the created game info
+ */
+export async function createGame(): Promise<ApiResponse<{ gameId: number; publicId: string; status: string }>> {
+  return fetchApi<{ gameId: number; publicId: string; status: string }>('/game/create', {
+    method: 'POST',
+  });
+}
+
+/**
+ * Invites a player to a game
+ * @param gameId - The game ID
+ * @param invitedUsername - The username to invite
+ * @returns A promise that resolves to the invitation response
+ */
+export async function invitePlayer(
+  gameId: number,
+  invitedUsername: string
+): Promise<ApiResponse<{ message: string }>> {
+  return fetchApi<{ message: string }>('/game/invite', {
+    method: 'POST',
+    body: JSON.stringify({ gameId, invitedUsername }),
+  });
+}
+
+/**
+ * Accepts a game invitation
+ * @param gameId - The game ID to accept
+ * @returns A promise that resolves to the acceptance response
+ */
+export async function acceptInvitation(
+  gameId: number
+): Promise<ApiResponse<{ message: string }>> {
+  return fetchApi<{ message: string }>('/game/accept', {
+    method: 'POST',
+    body: JSON.stringify({ gameId }),
+  });
+}
+
+/**
+ * Declines a game invitation
+ * @param gameId - The game ID to decline
+ * @returns A promise that resolves to the decline response
+ */
+export async function declineInvitation(
+  gameId: number
+): Promise<ApiResponse<{ message: string }>> {
+  return fetchApi<{ message: string }>('/game/decline', {
+    method: 'POST',
+    body: JSON.stringify({ gameId }),
+  });
+}
+
+/**
+ * Gets list of pending invitations and active games
+ * @returns A promise that resolves to the game lists
+ */
+export async function listGames(): Promise<ApiResponse<GameListResponse>> {
+  return fetchApi<GameListResponse>('/game/list', {
+    method: 'GET',
   });
 }
 
