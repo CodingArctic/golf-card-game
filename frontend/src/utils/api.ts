@@ -52,7 +52,6 @@ export async function fetchApi<T>(
 
   try {
     const url = `${baseUrl}${endpoint}`;
-    console.log('Making API request to:', url);
     
     const response = await fetch(url, {
       ...options,

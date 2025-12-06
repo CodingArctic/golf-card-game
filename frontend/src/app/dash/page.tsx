@@ -177,7 +177,6 @@ export default function DashPage() {
                 time: new Date().toISOString()
             };
 
-            console.log('Sending message:', message);
             wsRef.current.send(JSON.stringify(message));
             setInputValue('');
         }
