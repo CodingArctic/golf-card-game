@@ -33,13 +33,17 @@ func main() {
 	// create data access layer
 	userRepo := database.NewUserRepository(db)
 	chatRepo := database.NewChatRepository(db)
+	gameRepo := database.NewGameRepository(db)
 
 	// create business layer
 	userService := business.NewUserService(userRepo)
+	gameService := business.NewGameService(gameRepo, userRepo)
 
-	// Set the user service for HTTP handlers
+	// Set the services for HTTP handlers
 	service.SetUserService(userService)
 	service.SetChatRepository(chatRepo)
+	service.SetGameRepository(gameRepo)
+	service.SetGameService(gameService)
 
 	// Start the chat hub as a background goroutine
 	go service.Hub.Run()
@@ -53,9 +57,18 @@ func main() {
 	mux.HandleFunc("/api/logout", service.LogoutHandler)
 
 	// Protected API endpoints
-	// mux.HandleFunc("/api/turn", service.GetTurnHandler)
-	// mux.HandleFunc("/api/next", service.NextTurnHandler)
+
+	// Game management
+	mux.HandleFunc("/api/game/create", service.CreateGameHandler)
+	mux.HandleFunc("/api/game/invite", service.InvitePlayerHandler)
+	mux.HandleFunc("/api/game/accept", service.AcceptInvitationHandler)
+	mux.HandleFunc("/api/game/decline", service.DeclineInvitationHandler)
+	mux.HandleFunc("/api/game/list", service.ListGamesHandler)
+	mux.HandleFunc("/api/game/details", service.GetGameHandler)
+
+	// WebSocket endpoints
 	mux.HandleFunc("/api/ws/chat", service.ChatHandler)
+	mux.HandleFunc("/api/ws/game/", service.GameWebSocketHandler)
 
 	// Serve static files from frontend/out directory with custom 404 handling
 	mux.Handle("/", service.NotFoundHandler(http.Dir("./frontend/out")))
