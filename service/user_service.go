@@ -29,13 +29,13 @@ type loginRequest struct {
 // RegisterHandler creates a new user account
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
 		return
 	}
 
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 		return
 	}
 
@@ -43,11 +43,11 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Handle specific error types with appropriate status codes
 		if errors.Is(err, database.ErrUserAlreadyExists) {
-			jsonResponse(w, http.StatusConflict, map[string]string{"error": "username already exists"})
+			jsonResponse(w, http.StatusConflict, map[string]string{"error": "Username already exists"})
 			return
 		}
 		if errors.Is(err, database.ErrEmailAlreadyExists) {
-			jsonResponse(w, http.StatusConflict, map[string]string{"error": "email already exists"})
+			jsonResponse(w, http.StatusConflict, map[string]string{"error": "Email already exists"})
 			return
 		}
 		// Generic bad request for validation errors
@@ -56,7 +56,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, http.StatusCreated, map[string]interface{}{
-		"message": "user created successfully",
+		"message": "User created successfully",
 		"user": map[string]string{
 			"user_id":  user.UserID,
 			"username": user.Username,
@@ -68,13 +68,13 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 // LoginHandler obtains a session token from business logic and sets it as a cookie
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
 		return
 	}
 
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 		return
 	}
 
@@ -96,13 +96,13 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   86400, // 24 hours in seconds
 	})
 
-	jsonResponse(w, http.StatusOK, map[string]string{"message": "logged in successfully"})
+	jsonResponse(w, http.StatusOK, map[string]string{"message": "Logged in successfully"})
 }
 
 // LogoutHandler deletes the user's session
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
 		return
 	}
 
@@ -117,8 +117,10 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		// Secure:   true, // enable when using HTTPS
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1, // Delete cookie
 	})
 
-	jsonResponse(w, http.StatusOK, map[string]string{"message": "logged out successfully"})
+	jsonResponse(w, http.StatusOK, map[string]string{"message": "Logged out successfully"})
 }
