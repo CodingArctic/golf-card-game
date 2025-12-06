@@ -33,7 +33,7 @@ func SessionMiddleware(next http.Handler) http.Handler {
 		if err != nil || cookie.Value == "" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"missing or invalid session"}`))
+			w.Write([]byte(`{"error":"Missing or invalid session"}`))
 			return
 		}
 
@@ -42,10 +42,9 @@ func SessionMiddleware(next http.Handler) http.Handler {
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"invalid or expired session"}`))
+			w.Write([]byte(`{"error":"Invalid or expired session"}`))
 			return
 		}
-
 		// Add userID to context
 		ctx := context.WithValue(r.Context(), userIDKey, userID)
 		// Continue to the underlying handler
