@@ -23,6 +23,45 @@ type GameService struct {
 	userRepo database.UserRepository
 }
 
+// CardDef represents a single playing card in the game
+type CardDef struct {
+	Suit string `json:"suit"` // "hearts", "diamonds", "clubs", "spades", "joker"
+	Rank string `json:"rank"` // "A", "2"-"10", "J", "Q", "K", "Joker"
+}
+
+// GamePhase represents the current phase of the game
+type GamePhase string
+
+const (
+	PhaseInitialFlip GamePhase = "initial_flip" // Players selecting their 2 initial cards to flip
+	PhaseMainGame    GamePhase = "main_game"    // Normal turn-based gameplay
+	PhaseFinalRound  GamePhase = "final_round"  // One player flipped all cards, others get last turn
+	PhaseFinished    GamePhase = "finished"     // Game completed
+)
+
+// PlayerState represents a single player's game state
+type PlayerState struct {
+	UserID          string     `json:"userId"`
+	Hand            [6]CardDef `json:"hand"`            // Player's 6 cards in 3x2 grid
+	FaceUp          [6]bool    `json:"faceUp"`          // Which cards are revealed (true = face-up)
+	InitialFlips    int        `json:"initialFlips"`    // Count of initial flips (0-2)
+	AllCardsFlipped bool       `json:"allCardsFlipped"` // True when all 6 cards are face-up
+}
+
+// FullGameState represents the complete state of a game
+type FullGameState struct {
+	GameID           int           `json:"gameId"`
+	Phase            GamePhase     `json:"phase"`
+	Deck             []CardDef     `json:"deck"`             // Remaining cards to draw from
+	DiscardPile      []CardDef     `json:"discardPile"`      // Face-up discard stack (last card is top)
+	Players          []PlayerState `json:"players"`          // Player states (indexed by order_index)
+	CurrentTurnIdx   int           `json:"currentTurnIdx"`   // Index into Players array for whose turn it is
+	DrawnCard        *CardDef      `json:"drawnCard"`        // Card currently drawn (waiting for swap/discard decision)
+	TriggerPlayerIdx *int          `json:"triggerPlayerIdx"` // Index of player who flipped all cards (triggers final round)
+	FinalRoundTurns  int           `json:"finalRoundTurns"`  // Remaining turns in final round
+	Version          int           `json:"version"`          // For optimistic locking
+}
+
 func NewGameService(gameRepo database.GameRepository, userRepo database.UserRepository) *GameService {
 	return &GameService{
 		gameRepo: gameRepo,
