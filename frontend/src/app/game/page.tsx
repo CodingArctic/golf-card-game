@@ -282,127 +282,124 @@ function GameRoomContent() {
 					</div>
 				)}
 
-				{/* Opponent section */}
+				{/* Main game area - horizontal layout */}
 				{!isWaiting && (
-					<div className="mb-8">
-						<div className="text-white mb-4">
-							<h2 className="text-xl font-semibold">
-								{opponent?.username || "Waiting for opponent..."}
-							</h2>
-							{opponent?.score !== null && opponent?.score !== undefined && (
-								<p className="text-green-200">Score: {opponent.score}</p>
-							)}
-						</div>
-
-						{/* Opponent's cards */}
-						<div className="grid grid-cols-3 gap-4 max-w-[340px]">
-							{gameState.opponentCards.map((card) => (
-								<Card
-									key={card.index}
-									suit={card.suit}
-									value={card.value}
-									onClick={() => handleCardClick(card.index, true)}
-								/>
-							))}
-						</div>
-					</div>
-				)}
-
-				{/* Center area - deck, discard pile, and controls */}
-				{!isWaiting && (
-					<div className="flex-1 flex flex-col items-center justify-center gap-6">
-					{/* Deck and Discard */}
-					<div className="flex gap-8">
-						<div className="text-center">
-							<p className="text-white mb-2">Deck ({gameState.deckCount})</p>
-							<button
-								type="button"
-								onClick={handleDrawDeck}
-								disabled={!isYourTurn || hasDrawn || gameState.phase === "initial_flip" || gameState.phase === "finished"}
-								className="disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-transform"
-							>
-								<Card suit="back" value="hidden" />
-							</button>
-						</div>
-						<div className="text-center">
-							<p className="text-white mb-2">Discard</p>
-							{gameState.discardTopCard ? (
-								<button
-									type="button"
-									onClick={handleDrawDiscard}
-									disabled={!isYourTurn || hasDrawn || gameState.phase === "initial_flip" || gameState.phase === "finished"}
-									className="disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-transform"
-								>
+					<div className="flex-1 flex gap-8 items-center justify-center">
+						{/* Left side - Opponent cards */}
+						<div>
+							<div className="text-white mb-4">
+								<h2 className="text-xl font-semibold">
+									{opponent?.username || "Waiting for opponent..."}
+								</h2>
+								{opponent?.score !== null && opponent?.score !== undefined && (
+									<p className="text-green-200">Score: {opponent.score}</p>
+								)}
+							</div>
+							<div className="grid grid-cols-3 gap-4 max-w-[340px]">
+								{gameState.opponentCards.map((card) => (
 									<Card
-										suit={gameState.discardTopCard.suit}
-										value={gameState.discardTopCard.value}
+										key={card.index}
+										suit={card.suit}
+										value={card.value}
+										onClick={() => handleCardClick(card.index, true)}
 									/>
-								</button>
-							) : (
-								<div className="w-[100px] h-[140px] border-2 border-dashed border-white/30 rounded-lg" />
-							)}
+								))}
+							</div>
 						</div>
-					</div>
 
-					{/* Drawn card and action controls */}
-					{gameState.drawnCard && isYourTurn && (
-						<div className="bg-white/10 rounded-lg p-6 border-2 border-yellow-400">
-							<p className="text-white font-semibold mb-3 text-center">Drawn Card</p>
-							<div className="flex flex-col items-center gap-4">
-								<Card
-									suit={gameState.drawnCard.suit}
-									value={gameState.drawnCard.value}
-								/>
-								<div className="flex flex-col gap-2 w-full">
-									{discardMode ? (
-										<p className="text-yellow-300 text-sm text-center font-semibold">
-											Click one of your face-down cards to flip it
-										</p>
+						{/* Center - Deck, Discard, and Drawn Card */}
+						<div className="flex flex-col gap-8 items-center">
+							{/* Deck and Discard */}
+							<div className="flex gap-6">
+								<div className="text-center">
+									<p className="text-white mb-2">Deck ({gameState.deckCount})</p>
+									<button
+										type="button"
+										onClick={handleDrawDeck}
+										disabled={!isYourTurn || hasDrawn || gameState.phase === "initial_flip" || gameState.phase === "finished"}
+										className="disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-transform"
+									>
+										<Card suit="back" value="hidden" />
+									</button>
+								</div>
+								<div className="text-center">
+									<p className="text-white mb-2">Discard</p>
+									{gameState.discardTopCard ? (
+										<button
+											type="button"
+											onClick={handleDrawDiscard}
+											disabled={!isYourTurn || hasDrawn || gameState.phase === "initial_flip" || gameState.phase === "finished"}
+											className="disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-transform"
+										>
+											<Card
+												suit={gameState.discardTopCard.suit}
+												value={gameState.discardTopCard.value}
+											/>
+										</button>
 									) : (
-										<>
-											<p className="text-white text-sm text-center mb-2">
-												Click one of your cards to swap with this card
-											</p>
-											<button
-												type="button"
-												onClick={handleEnterDiscardMode}
-												className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-											>
-												Discard & Flip Instead
-											</button>
-										</>
+										<div className="w-[100px] h-[140px] border-2 border-dashed border-white/30 rounded-lg" />
 									)}
 								</div>
 							</div>
+
+							{/* Drawn card and action controls */}
+							{gameState.drawnCard && isYourTurn && (
+								<div className="bg-white/10 rounded-lg p-4 border-2 border-yellow-400 max-w-[220px]">
+									<p className="text-white font-semibold mb-3 text-center">Drawn Card</p>
+									<div className="flex flex-col items-center gap-3">
+										<Card
+											suit={gameState.drawnCard.suit}
+											value={gameState.drawnCard.value}
+										/>
+										<div className="flex flex-col gap-2 w-full">
+											{discardMode ? (
+												<p className="text-yellow-300 text-xs text-center font-semibold">
+													Click one of your face-down cards to flip it
+												</p>
+											) : (
+												<>
+													<p className="text-white text-xs text-center">
+														Click a card to swap
+													</p>
+													<button
+														type="button"
+														onClick={handleEnterDiscardMode}
+														className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
+													>
+														Discard & Flip
+													</button>
+												</>
+											)}
+										</div>
+									</div>
+								</div>
+							)}
 						</div>
-					)}
-				</div>
-				)}
 
-				{/* Your section */}
-				{!isWaiting && (
-					<div className="mt-8">
-					<div className="text-white mb-4">
-						<h2 className="text-xl font-semibold">
-							{you?.username || "You"}
-						</h2>
-						{you?.score !== null && you?.score !== undefined && (
-							<p className="text-green-200">Score: {you.score}</p>
-						)}
-					</div>
+						{/* Right side - Your cards */}
+						<div>
+							<div className="text-white mb-4">
+								<h2 className="text-xl font-semibold">
+									{you?.username || "You"}
+								</h2>
+								{you?.score !== null && you?.score !== undefined && (
+									<p className="text-green-200">Score: {you.score}</p>
+								)}
+							</div>
 
-					{/* Your cards */}
-					<div className="grid grid-cols-3 gap-4 max-w-[340px]">
-						{gameState.yourCards.map((card) => (
-							<Card
-								key={card.index}
-								suit={card.suit}
-								value={card.value}
-								onClick={() => handleCardClick(card.index, false)}
-							/>
-						))}
+							{/* Your cards */}
+							<div className="grid grid-cols-3 gap-4 max-w-[340px]">
+								{gameState.yourCards.map((card) => (
+									<Card
+										key={card.index}
+										suit={card.suit}
+										value={card.value}
+										onClick={() => handleCardClick(card.index, false)}
+									/>
+								))}
+							</div>
+						</div>
 					</div>
-				</div>
 				)}
 			</div>
 
