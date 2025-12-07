@@ -96,24 +96,24 @@ function GameRoomContent() {
 			const message: GameMessage = JSON.parse(event.data);
 
 			switch (message.type) {
-			case "state":
-				const state = message.payload as GameState;
-				setGameState(state);
-				setErrorMessage(null);
-				break;
+				case "state":
+					const state = message.payload as GameState;
+					setGameState(state);
+					setErrorMessage(null);
+					break;
 				case "chat":
 					setMessages((prev) => [...prev, message.payload as ChatMessage]);
 					break;
-			case "error":
-				const errorPayload = message.payload as { error: string };
-				setErrorMessage(errorPayload.error);
-				setTimeout(() => setErrorMessage(null), 5000);
-				break;
-			case "game_end":
-				const endData = message.payload as GameEndData;
-				setGameEndData(endData);
-				break;
-			case "player_joined":
+				case "error":
+					const errorPayload = message.payload as { error: string };
+					setErrorMessage(errorPayload.error);
+					setTimeout(() => setErrorMessage(null), 5000);
+					break;
+				case "game_end":
+					const endData = message.payload as GameEndData;
+					setGameEndData(endData);
+					break;
+				case "player_joined":
 					console.log("Player joined:", message.payload);
 					break;
 				case "player_left":
@@ -385,7 +385,7 @@ function GameRoomContent() {
 						<div>
 							<div className="text-white mb-4">
 								<h2 className="text-xl font-semibold">
-									{you?.username || "You"}
+									{`${you?.username} (You)`}
 								</h2>
 								{you?.score !== null && you?.score !== undefined && (
 									<p className="text-green-200">Score: {you.score}</p>
