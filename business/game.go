@@ -319,3 +319,96 @@ func (s *GameService) ValidateUserInGame(ctx context.Context, gameID int, userID
 
 	return false, nil
 }
+
+// Game Engine Functions
+
+// createDeck creates a shuffled standard deck with 2 jokers (54 cards total)
+func createDeck() []CardDef {
+	suits := []string{"hearts", "diamonds", "clubs", "spades"}
+	ranks := []string{"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"}
+
+	deck := make([]CardDef, 0, 54)
+
+	// Add standard 52 cards
+	for _, suit := range suits {
+		for _, rank := range ranks {
+			deck = append(deck, CardDef{Suit: suit, Rank: rank})
+		}
+	}
+
+	// Add 2 jokers
+	deck = append(deck, CardDef{Suit: "joker", Rank: "Joker"})
+	deck = append(deck, CardDef{Suit: "joker", Rank: "Joker"})
+
+	// Shuffle using Fisher-Yates algorithm
+	for i := len(deck) - 1; i > 0; i-- {
+		j := randInt(i + 1)
+		deck[i], deck[j] = deck[j], deck[i]
+	}
+
+	return deck
+}
+
+// randInt returns a cryptographically random integer in range [0, n)
+func randInt(n int) int {
+	if n <= 0 {
+		return 0
+	}
+
+	var b [8]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		// Fallback to time-based if crypto/rand fails
+		return int(time.Now().UnixNano()) % n
+	}
+
+	return int(binary.BigEndian.Uint64(b[:]) % uint64(n))
+}
+
+// InitializeGame creates the initial game state when all players have joined
+func (s *GameService) InitializeGame(ctx context.Context, gameID int, playerUserIDs []string) (*FullGameState, error) {
+	if len(playerUserIDs) != 2 {
+		return nil, errors.New("game requires exactly 2 players")
+	}
+
+	// Create and shuffle deck
+	deck := createDeck()
+
+	// Deal 6 cards to each player
+	players := make([]PlayerState, 2)
+	for i := 0; i < 2; i++ {
+		var hand [6]CardDef
+		for j := 0; j < 6; j++ {
+			hand[j] = deck[0]
+			deck = deck[1:]
+		}
+
+		players[i] = PlayerState{
+			UserID:          playerUserIDs[i],
+			Hand:            hand,
+			FaceUp:          [6]bool{false, false, false, false, false, false},
+			InitialFlips:    0,
+			AllCardsFlipped: false,
+		}
+	}
+
+	// Create discard pile with first card from deck
+	discardPile := []CardDef{deck[0]}
+	deck = deck[1:]
+
+	// Create initial game state
+	state := &FullGameState{
+		GameID:           gameID,
+		Phase:            PhaseInitialFlip,
+		Deck:             deck,
+		DiscardPile:      discardPile,
+		Players:          players,
+		CurrentTurnIdx:   0,
+		DrawnCard:        nil,
+		TriggerPlayerIdx: nil,
+		FinalRoundTurns:  0,
+		Version:          1,
+	}
+
+	return state, nil
+}
