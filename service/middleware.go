@@ -20,6 +20,7 @@ func SessionMiddleware(next http.Handler) http.Handler {
 		if path == "" ||
 			path == "/api/login" ||
 			path == "/api/register" ||
+			path == "/api/register/nonce" ||
 			path == "/api/logout" ||
 			path == "/login" ||
 			path == "/register" ||
