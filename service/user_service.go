@@ -9,21 +9,49 @@ import (
 )
 
 var userService *business.UserService
+var nonceManager *business.NonceManager
 
 // SetUserService sets the user service dependency
 func SetUserService(us *business.UserService) {
 	userService = us
 }
 
+// SetNonceManager sets the nonce manager dependency
+func SetNonceManager(nm *business.NonceManager) {
+	nonceManager = nm
+}
+
 type registerRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Email    string `json:"email"`
+	Nonce    string `json:"nonce"`
 }
 
 type loginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+// GetRegistrationNonceHandler generates and returns a nonce token for registration
+func GetRegistrationNonceHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+
+	// Extract client information
+	ipAddress := getClientIP(r)
+	userAgent := r.Header.Get("User-Agent")
+
+	// Generate nonce
+	nonce, err := nonceManager.GenerateNonce(ipAddress, userAgent)
+	if err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to generate nonce"})
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, map[string]string{"nonce": nonce})
 }
 
 // RegisterHandler creates a new user account
@@ -36,6 +64,15 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	// Validate nonce before proceeding with registration
+	ipAddress := getClientIP(r)
+	userAgent := r.Header.Get("User-Agent")
+
+	if err := nonceManager.ValidateNonce(req.Nonce, ipAddress, userAgent); err != nil {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid or expired registration token"})
 		return
 	}
 
@@ -123,4 +160,43 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	jsonResponse(w, http.StatusOK, map[string]string{"message": "Logged out successfully"})
+}
+
+// getClientIP extracts the client's IP address from the request
+// It checks X-Forwarded-For and X-Real-IP headers for proxied requests
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header first (common for proxied requests)
+	forwarded := r.Header.Get("X-Forwarded-For")
+	if forwarded != "" {
+		// X-Forwarded-For can contain multiple IPs separated by commas
+		// Take the first one
+		for i := 0; i < len(forwarded); i++ {
+			if forwarded[i] == ',' {
+				return forwarded[:i]
+			}
+		}
+		return forwarded
+	}
+
+	// Check X-Real-IP header (another common proxy header)
+	realIP := r.Header.Get("X-Real-IP")
+	if realIP != "" {
+		return realIP
+	}
+
+	// Fall back to RemoteAddr, but strip the port
+	ip := r.RemoteAddr
+	// Remove port if present (IPv4 format: "ip:port" or IPv6 format: "[ip]:port")
+	for i := len(ip) - 1; i >= 0; i-- {
+		if ip[i] == ':' {
+			// Check if this is IPv6 by looking for brackets
+			if i > 0 && ip[0] == '[' {
+				// IPv6 format: [ip]:port
+				return ip[1 : i-1]
+			}
+			// IPv4 format: ip:port
+			return ip[:i]
+		}
+	}
+	return ip
 }
