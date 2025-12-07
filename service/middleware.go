@@ -32,16 +32,16 @@ func SessionMiddleware(next http.Handler) http.Handler {
 
 		cookie, err := r.Cookie("session")
 		if err != nil || cookie.Value == "" {
-			// Redirect to homepage for unauthenticated requests to protected pages
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+			// Redirect to login for unauthenticated requests to protected pages
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 
 		// Validate the session token
 		userID, err := userService.ValidateSession(r.Context(), cookie.Value)
 		if err != nil {
-			// Redirect to homepage for invalid/expired sessions
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+			// Redirect to login for invalid/expired sessions
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 		// Add userID to context
