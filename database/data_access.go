@@ -43,6 +43,7 @@ type GameRepository interface {
 	GetPendingInvitations(ctx context.Context, userID string) ([]*GameInvitation, error)
 	GetActiveGames(ctx context.Context, userID string) ([]*Game, error)
 	UpdateGameStatus(ctx context.Context, gameID int, status string) error
+	FinishGame(ctx context.Context, gameID int, winnerUserID string) error
 	SaveGameState(ctx context.Context, gameID int, stateJSON []byte) error
 	LoadGameState(ctx context.Context, gameID int) ([]byte, int, error)
 	UpdateGameState(ctx context.Context, gameID int, stateJSON []byte, expectedVersion int) error
@@ -455,6 +456,14 @@ func (r *postgresGameRepo) UpdatePlayerScore(ctx context.Context, gameID int, us
 	_, err := r.pool.Exec(ctx,
 		`UPDATE game_players SET score = $3 WHERE game_id = $1 AND user_id = $2`,
 		gameID, userID, score)
+	return err
+}
+
+// FinishGame marks a game as finished with winner and timestamp
+func (r *postgresGameRepo) FinishGame(ctx context.Context, gameID int, winnerUserID string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE games SET status = 'finished', finished_at = now(), winner_user_id = $2 WHERE game_id = $1`,
+		gameID, winnerUserID)
 	return err
 }
 
