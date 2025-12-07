@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { registerUser } from '@/utils/api';
+import { registerUser, getRegistrationNonce } from '@/utils/api';
 import '../globals.css';
 import { IoIosArrowBack } from 'react-icons/io';
 
@@ -15,6 +15,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: ''
   });
+  const [nonce, setNonce] = useState<string | null>(null);
   const [errors, setErrors] = useState({
     username: '',
     email: '',
@@ -74,16 +75,35 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
+  // Fetch nonce token when component mounts
+  useEffect(() => {
+    const fetchNonce = async () => {
+      const response = await getRegistrationNonce();
+      if (response.data?.nonce) {
+        setNonce(response.data.nonce);
+      } else {
+        setApiError('Failed to load registration token. Please refresh the page.');
+      }
+    };
+    fetchNonce();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
+      if (!nonce) {
+        setApiError('Registration token not available. Please refresh the page.');
+        return;
+      }
+
       setIsLoading(true);
       setApiError('');
       
       const response = await registerUser({
         username: formData.username,
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        nonce: nonce
       });
 
       if (response.error) {
