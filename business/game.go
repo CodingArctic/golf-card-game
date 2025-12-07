@@ -682,18 +682,17 @@ func (s *GameService) endTurn(state *FullGameState, currentPlayerIdx int) error 
 		state.FinalRoundTurns = len(state.Players) - 1
 	}
 
-	// Move to next player
-	state.CurrentTurnIdx = (state.CurrentTurnIdx + 1) % len(state.Players)
-
-	// If in final round, decrement turns
+	// If in final round, decrement turns left BEFORE moving to next player
 	if state.Phase == PhaseFinalRound {
 		state.FinalRoundTurns--
-		if state.FinalRoundTurns <= 0 {
-			// Game is over
+		if state.FinalRoundTurns < 0 {
+			// All players have had their final turn
 			state.Phase = PhaseFinished
-			// Winner will be determined by scoring
 		}
 	}
+
+	// Move to next player
+	state.CurrentTurnIdx = (state.CurrentTurnIdx + 1) % len(state.Players)
 
 	return nil
 }
