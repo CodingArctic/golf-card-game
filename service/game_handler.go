@@ -535,6 +535,13 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 					log.Printf("Failed to finish game: %v", err)
 				} else {
 					log.Printf("Game %d finished, winner: %s", gameID, winnerUserID)
+
+					// Save state again after flipping remaining cards
+					finalStateJSON, _ := json.Marshal(state)
+					gameRepo.UpdateGameState(context.Background(), gameID, finalStateJSON, version+1)
+
+					// Broadcast game end notification
+					broadcastGameEnd(room, gameID, &state, winnerUserID)
 				}
 			}
 
@@ -589,6 +596,54 @@ func broadcastGameState(room *GameRoom, gameID int, state *business.FullGameStat
 
 		if err := conn.WriteJSON(msg); err != nil {
 			log.Printf("Failed to send state to user %s: %v", userID, err)
+		}
+	}
+}
+
+// GameEndPayload for game end notification
+type GameEndPayload struct {
+	WinnerUserID   string         `json:"winnerUserId"`
+	WinnerUsername string         `json:"winnerUsername"`
+	Scores         map[string]int `json:"scores"`
+}
+
+// broadcastGameEnd sends game end notification to all players
+func broadcastGameEnd(room *GameRoom, gameID int, state *business.FullGameState, winnerUserID string) {
+	// Get players to get usernames
+	players, err := gameRepo.GetGamePlayers(context.Background(), gameID)
+	if err != nil {
+		log.Printf("Failed to get players: %v", err)
+		return
+	}
+
+	// Build scores map and find winner username
+	scores := business.GetFinalScores(state)
+	var winnerUsername string
+	for _, p := range players {
+		if p.UserID == winnerUserID {
+			winnerUsername = p.Username
+			break
+		}
+	}
+
+	endPayload := GameEndPayload{
+		WinnerUserID:   winnerUserID,
+		WinnerUsername: winnerUsername,
+		Scores:         scores,
+	}
+
+	payload, _ := json.Marshal(endPayload)
+	msg := GameMessage{
+		Type:    "game_end",
+		Payload: payload,
+	}
+
+	room.mu.RLock()
+	defer room.mu.RUnlock()
+
+	for conn := range room.clients {
+		if err := conn.WriteJSON(msg); err != nil {
+			log.Printf("Failed to send game end notification: %v", err)
 		}
 	}
 }
