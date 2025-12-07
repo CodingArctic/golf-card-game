@@ -144,7 +144,8 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		var msg ChatMessage
 		err := conn.ReadJSON(&msg)
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			// Only log unexpected close errors (exclude normal closures, going away, and no status)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure, websocket.CloseNoStatusReceived) {
 				log.Printf("WebSocket error: %v", err)
 			}
 			break
