@@ -2,6 +2,8 @@ package business
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"golf-card-game/database"
@@ -16,6 +18,17 @@ var (
 	ErrInvalidGameStatus = errors.New("game is not in a valid state for this operation")
 	ErrNotInvited        = errors.New("user is not invited to this game")
 	ErrCannotInviteSelf  = errors.New("cannot invite yourself")
+
+	// Game action errors
+	ErrNotYourTurn        = errors.New("it is not your turn")
+	ErrInvalidPhase       = errors.New("action not allowed in current game phase")
+	ErrInvalidCardIndex   = errors.New("invalid card index")
+	ErrCardAlreadyFaceUp  = errors.New("card is already face-up")
+	ErrInvalidInitialFlip = errors.New("initial flip must be one card from top row and one from bottom row")
+	ErrNoDrawnCard        = errors.New("no card has been drawn yet")
+	ErrCardAlreadyDrawn   = errors.New("a card has already been drawn this turn")
+	ErrEmptyDeck          = errors.New("deck is empty")
+	ErrEmptyDiscard       = errors.New("discard pile is empty")
 )
 
 type GameService struct {
@@ -411,4 +424,388 @@ func (s *GameService) InitializeGame(ctx context.Context, gameID int, playerUser
 	}
 
 	return state, nil
+}
+
+// findPlayerIndex returns the index of a player by their userID
+func findPlayerIndex(state *FullGameState, userID string) (int, error) {
+	for i, player := range state.Players {
+		if player.UserID == userID {
+			return i, nil
+		}
+	}
+	return -1, errors.New("player not found in game")
+}
+
+// InitialFlipCard handles flipping a card during the initial flip phase
+func (s *GameService) InitialFlipCard(state *FullGameState, userID string, cardIndex int) error {
+	if state.Phase != PhaseInitialFlip {
+		return ErrInvalidPhase
+	}
+
+	playerIdx, err := findPlayerIndex(state, userID)
+	if err != nil {
+		return err
+	}
+
+	// Validate card index
+	if cardIndex < 0 || cardIndex > 5 {
+		return ErrInvalidCardIndex
+	}
+
+	player := &state.Players[playerIdx]
+
+	// Check if card is already face-up
+	if player.FaceUp[cardIndex] {
+		return ErrCardAlreadyFaceUp
+	}
+
+	// Check if player has completed their 2 flips
+	if player.InitialFlips >= 2 {
+		return errors.New("you have already flipped 2 cards")
+	}
+
+	// Validate one from top row (0-2) and one from bottom row (3-5)
+	if player.InitialFlips == 1 {
+		// Check if this flip follows the rule
+		hasTopRow := false
+		hasBottomRow := false
+
+		for i := 0; i < 6; i++ {
+			if player.FaceUp[i] {
+				if i < 3 {
+					hasTopRow = true
+				} else {
+					hasBottomRow = true
+				}
+			}
+		}
+
+		// The new card must be from the other row
+		if cardIndex < 3 && hasTopRow {
+			return ErrInvalidInitialFlip
+		}
+		if cardIndex >= 3 && hasBottomRow {
+			return ErrInvalidInitialFlip
+		}
+	}
+
+	// Flip the card
+	player.FaceUp[cardIndex] = true
+	player.InitialFlips++
+
+	// Check if both players have completed initial flips
+	allPlayersReady := true
+	for _, p := range state.Players {
+		if p.InitialFlips < 2 {
+			allPlayersReady = false
+			break
+		}
+	}
+
+	// If all players ready, transition to main game
+	if allPlayersReady {
+		state.Phase = PhaseMainGame
+		state.CurrentTurnIdx = 0 // First player goes first
+	}
+
+	return nil
+}
+
+// DrawFromDeck draws the top card from the deck
+func (s *GameService) DrawFromDeck(state *FullGameState, userID string) error {
+	if state.Phase != PhaseMainGame && state.Phase != PhaseFinalRound {
+		return ErrInvalidPhase
+	}
+
+	playerIdx, err := findPlayerIndex(state, userID)
+	if err != nil {
+		return err
+	}
+
+	if playerIdx != state.CurrentTurnIdx {
+		return ErrNotYourTurn
+	}
+
+	if state.DrawnCard != nil {
+		return ErrCardAlreadyDrawn
+	}
+
+	if len(state.Deck) == 0 {
+		return ErrEmptyDeck
+	}
+
+	// Draw top card from deck
+	state.DrawnCard = &state.Deck[0]
+	state.Deck = state.Deck[1:]
+
+	return nil
+}
+
+// DrawFromDiscard draws the top card from the discard pile
+func (s *GameService) DrawFromDiscard(state *FullGameState, userID string) error {
+	if state.Phase != PhaseMainGame && state.Phase != PhaseFinalRound {
+		return ErrInvalidPhase
+	}
+
+	playerIdx, err := findPlayerIndex(state, userID)
+	if err != nil {
+		return err
+	}
+
+	if playerIdx != state.CurrentTurnIdx {
+		return ErrNotYourTurn
+	}
+
+	if state.DrawnCard != nil {
+		return ErrCardAlreadyDrawn
+	}
+
+	if len(state.DiscardPile) == 0 {
+		return ErrEmptyDiscard
+	}
+
+	// Draw top card from discard pile (last element)
+	lastIdx := len(state.DiscardPile) - 1
+	state.DrawnCard = &state.DiscardPile[lastIdx]
+	state.DiscardPile = state.DiscardPile[:lastIdx]
+
+	return nil
+}
+
+// SwapCard swaps the drawn card with a card in the player's hand
+func (s *GameService) SwapCard(state *FullGameState, userID string, cardIndex int) error {
+	if state.Phase != PhaseMainGame && state.Phase != PhaseFinalRound {
+		return ErrInvalidPhase
+	}
+
+	playerIdx, err := findPlayerIndex(state, userID)
+	if err != nil {
+		return err
+	}
+
+	if playerIdx != state.CurrentTurnIdx {
+		return ErrNotYourTurn
+	}
+
+	if state.DrawnCard == nil {
+		return ErrNoDrawnCard
+	}
+
+	// Validate card index
+	if cardIndex < 0 || cardIndex > 5 {
+		return ErrInvalidCardIndex
+	}
+
+	player := &state.Players[playerIdx]
+
+	// Swap the cards
+	oldCard := player.Hand[cardIndex]
+	player.Hand[cardIndex] = *state.DrawnCard
+	player.FaceUp[cardIndex] = true // Card becomes face-up
+
+	// Put old card on discard pile
+	state.DiscardPile = append(state.DiscardPile, oldCard)
+	state.DrawnCard = nil
+
+	// Check if all cards are face-up
+	player.AllCardsFlipped = checkAllCardsFlipped(player)
+
+	// End turn and check for game end
+	return s.endTurn(state, playerIdx)
+}
+
+// DiscardAndFlip discards the drawn card and flips one of the player's cards
+func (s *GameService) DiscardAndFlip(state *FullGameState, userID string, cardIndex int) error {
+	if state.Phase != PhaseMainGame && state.Phase != PhaseFinalRound {
+		return ErrInvalidPhase
+	}
+
+	playerIdx, err := findPlayerIndex(state, userID)
+	if err != nil {
+		return err
+	}
+
+	if playerIdx != state.CurrentTurnIdx {
+		return ErrNotYourTurn
+	}
+
+	if state.DrawnCard == nil {
+		return ErrNoDrawnCard
+	}
+
+	// Validate card index
+	if cardIndex < 0 || cardIndex > 5 {
+		return ErrInvalidCardIndex
+	}
+
+	player := &state.Players[playerIdx]
+
+	// Check if card is already face-up
+	if player.FaceUp[cardIndex] {
+		return ErrCardAlreadyFaceUp
+	}
+
+	// Discard the drawn card
+	state.DiscardPile = append(state.DiscardPile, *state.DrawnCard)
+	state.DrawnCard = nil
+
+	// Flip the chosen card
+	player.FaceUp[cardIndex] = true
+
+	// Check if all cards are face-up
+	player.AllCardsFlipped = checkAllCardsFlipped(player)
+
+	// End turn and check for game end
+	return s.endTurn(state, playerIdx)
+}
+
+// checkAllCardsFlipped checks if all 6 cards in a player's hand are face-up
+func checkAllCardsFlipped(player *PlayerState) bool {
+	for _, faceUp := range player.FaceUp {
+		if !faceUp {
+			return false
+		}
+	}
+	return true
+}
+
+// endTurn handles end of turn logic and checks for game end conditions
+func (s *GameService) endTurn(state *FullGameState, currentPlayerIdx int) error {
+	player := &state.Players[currentPlayerIdx]
+
+	// Check if this player just flipped all their cards
+	if player.AllCardsFlipped && state.Phase == PhaseMainGame {
+		// Trigger final round
+		state.Phase = PhaseFinalRound
+		state.TriggerPlayerIdx = &currentPlayerIdx
+		// Each other player gets one more turn
+		state.FinalRoundTurns = len(state.Players) - 1
+	}
+
+	// Move to next player
+	state.CurrentTurnIdx = (state.CurrentTurnIdx + 1) % len(state.Players)
+
+	// If in final round, decrement turns
+	if state.Phase == PhaseFinalRound {
+		state.FinalRoundTurns--
+		if state.FinalRoundTurns <= 0 {
+			// Game is over
+			state.Phase = PhaseFinished
+			// Winner will be determined by scoring
+		}
+	}
+
+	return nil
+}
+
+// getCardValue returns the point value of a card
+func getCardValue(card CardDef) int {
+	switch card.Rank {
+	case "A":
+		return 1
+	case "2":
+		return 2
+	case "3":
+		return 3
+	case "4":
+		return 4
+	case "5":
+		return 5
+	case "6":
+		return 6
+	case "7":
+		return 7
+	case "8":
+		return 8
+	case "9":
+		return 9
+	case "10":
+		return 10
+	case "J", "Q", "K":
+		return 10
+	case "Joker":
+		return -2
+	default:
+		return 0
+	}
+}
+
+// CalculateScore computes a player's score with column matching rules
+func CalculateScore(player *PlayerState) int {
+	totalScore := 0
+
+	// Check each column (3 columns: 0,3 | 1,4 | 2,5)
+	for col := 0; col < 3; col++ {
+		topIdx := col        // Top row: 0, 1, 2
+		bottomIdx := col + 3 // Bottom row: 3, 4, 5
+
+		topCard := player.Hand[topIdx]
+		bottomCard := player.Hand[bottomIdx]
+
+		// Check if both cards are face-up and have matching ranks
+		if player.FaceUp[topIdx] && player.FaceUp[bottomIdx] &&
+			topCard.Rank == bottomCard.Rank {
+			// Matching column - both cards cancel to 0 points
+			continue
+		}
+
+		// Add points for face-up cards
+		if player.FaceUp[topIdx] {
+			totalScore += getCardValue(topCard)
+		}
+		if player.FaceUp[bottomIdx] {
+			totalScore += getCardValue(bottomCard)
+		}
+	}
+
+	return totalScore
+}
+
+// FinishGame calculates final scores, determines winner, and updates database
+func (s *GameService) FinishGame(ctx context.Context, state *FullGameState) (string, error) {
+	if state.Phase != PhaseFinished {
+		return "", errors.New("game is not finished yet")
+	}
+
+	// Calculate scores for all players
+	scores := make(map[string]int)
+	lowestScore := int(^uint(0) >> 1) // Max int
+	var winnerUserID string
+
+	for i := range state.Players {
+		player := &state.Players[i]
+		score := CalculateScore(player)
+		scores[player.UserID] = score
+
+		if score < lowestScore {
+			lowestScore = score
+			winnerUserID = player.UserID
+		}
+	}
+
+	// Update player scores in database
+	for userID, score := range scores {
+		err := s.gameRepo.UpdatePlayerScore(ctx, state.GameID, userID, score)
+		if err != nil {
+			return "", fmt.Errorf("failed to update player score: %w", err)
+		}
+	}
+
+	// Update game status to finished
+	err := s.gameRepo.UpdateGameStatus(ctx, state.GameID, "finished")
+	if err != nil {
+		return "", fmt.Errorf("failed to update game status: %w", err)
+	}
+
+	return winnerUserID, nil
+}
+
+// GetFinalScores returns the scores for all players
+func GetFinalScores(state *FullGameState) map[string]int {
+	scores := make(map[string]int)
+	for i := range state.Players {
+		player := &state.Players[i]
+		scores[player.UserID] = CalculateScore(player)
+	}
+	return scores
 }
