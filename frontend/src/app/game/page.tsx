@@ -206,6 +206,11 @@ function GameRoomContent() {
 		setDiscardMode(true);
 	};
 
+	// Credit to Scott Sauyet https://stackoverflow.com/questions/64489395/converting-snake-case-string-to-title-case
+	const titleCase = (s: string) =>
+		s.replace(/^[-_]*(.)/, (_, c) => c.toUpperCase())
+			.replace(/[-_]+(.)/g, (_, c) => ' ' + c.toUpperCase())
+
 	// Reset discard mode when drawn card changes
 	useEffect(() => {
 		if (!gameState?.drawnCard) {
@@ -247,7 +252,7 @@ function GameRoomContent() {
 					</button>
 					<h1 className="text-3xl font-bold text-white">Golf Card Game</h1>
 					<p className="text-green-200">
-						Game #{gameState.gameId} • Status: {gameState.status} • Phase: {gameState.phase}
+						Game #{gameState.gameId} • Status: {titleCase(gameState.status)} • Phase: {titleCase(gameState.phase)}
 					</p>
 					{isYourTurn && (
 						<p className="text-yellow-300 font-semibold mt-2">
