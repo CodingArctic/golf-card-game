@@ -42,6 +42,9 @@ type GameRepository interface {
 	GetPendingInvitations(ctx context.Context, userID string) ([]*GameInvitation, error)
 	GetActiveGames(ctx context.Context, userID string) ([]*Game, error)
 	UpdateGameStatus(ctx context.Context, gameID int, status string) error
+	SaveGameState(ctx context.Context, gameID int, stateJSON []byte) error
+	LoadGameState(ctx context.Context, gameID int) ([]byte, int, error)
+	UpdateGameState(ctx context.Context, gameID int, stateJSON []byte, expectedVersion int) error
 }
 
 type ChatMessage struct {
@@ -444,4 +447,53 @@ func (r *postgresGameRepo) UpdateGameStatus(ctx context.Context, gameID int, sta
 		`UPDATE games SET status = $2 WHERE game_id = $1`,
 		gameID, status)
 	return err
+}
+
+// SaveGameState creates the initial game state record
+func (r *postgresGameRepo) SaveGameState(ctx context.Context, gameID int, stateJSON []byte) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO game_states (game_id, state_json, version) 
+		 VALUES ($1, $2, 1)`,
+		gameID, stateJSON)
+	return err
+}
+
+// LoadGameState retrieves the current game state and version
+func (r *postgresGameRepo) LoadGameState(ctx context.Context, gameID int) ([]byte, int, error) {
+	var stateJSON []byte
+	var version int
+	err := r.pool.QueryRow(ctx,
+		`SELECT state_json, version 
+		 FROM game_states 
+		 WHERE game_id = $1 
+		 ORDER BY last_updated DESC 
+		 LIMIT 1`,
+		gameID).
+		Scan(&stateJSON, &version)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, 0, errors.New("game state not found")
+		}
+		return nil, 0, err
+	}
+	return stateJSON, version, nil
+}
+
+// UpdateGameState updates the game state with optimistic locking
+func (r *postgresGameRepo) UpdateGameState(ctx context.Context, gameID int, stateJSON []byte, expectedVersion int) error {
+	result, err := r.pool.Exec(ctx,
+		`UPDATE game_states 
+		 SET state_json = $2, version = version + 1, last_updated = now() 
+		 WHERE game_id = $1 AND version = $3`,
+		gameID, stateJSON, expectedVersion)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return errors.New("version mismatch: game state was modified by another process")
+	}
+
+	return nil
 }
