@@ -84,15 +84,14 @@ function GameRoomContent() {
 		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 		const wsUrl = `${protocol}//${window.location.host}/api/ws/game/${gameId}`;
 
-		const ws = new WebSocket(wsUrl);
-		wsRef.current = ws;
+		wsRef.current = new WebSocket(wsUrl);
 
-		ws.onopen = () => {
+		wsRef.current.onopen = () => {
 			console.log("Connected to game WebSocket");
 			setWsConnected(true);
 		};
 
-		ws.onmessage = (event) => {
+		wsRef.current.onmessage = (event) => {
 			const message: GameMessage = JSON.parse(event.data);
 
 			switch (message.type) {
@@ -124,17 +123,20 @@ function GameRoomContent() {
 			}
 		};
 
-		ws.onerror = (error) => {
+		wsRef.current.onerror = (error) => {
 			console.error("WebSocket error:", error);
 		};
 
-		ws.onclose = () => {
+		wsRef.current.onclose = () => {
 			console.log("WebSocket closed");
 			setWsConnected(false);
 		};
 
 		return () => {
-			ws.close();
+			// Close with normal closure code (1000)
+			if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+				wsRef.current.close(1000, "Navigating away");
+			}
 		};
 	}, [gameId, router]);
 
