@@ -189,6 +189,11 @@ export default function DashPage() {
         }
     };
 
+    // Credit to Scott Sauyet https://stackoverflow.com/questions/64489395/converting-snake-case-string-to-title-case
+	const titleCase = (s: string) =>
+		s.replace(/^[-_]*(.)/, (_, c) => c.toUpperCase())
+			.replace(/[-_]+(.)/g, (_, c) => ' ' + c.toUpperCase())
+
     return (
         <div className='flex h-screen bg-gray-50 dark:bg-gray-900'>
             <main className='flex-1 p-6 overflow-y-auto'>
@@ -244,7 +249,7 @@ export default function DashPage() {
                                 <option value="">Select a game...</option>
                                 {activeGames.map((game) => (
                                     <option key={game.gameId} value={game.gameId}>
-                                        Game #{game.gameId} - {game.status} ({game.playerCount}/{game.maxPlayers} players)
+                                        Game #{game.gameId} - {titleCase(game.status)} ({game.playerCount}/{game.maxPlayers} players)
                                     </option>
                                 ))}
                             </select>
