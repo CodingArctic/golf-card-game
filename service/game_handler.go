@@ -66,12 +66,29 @@ type PlayerInfo struct {
 	Username string `json:"username"`
 	Score    *int   `json:"score"`
 	IsActive bool   `json:"isActive"`
+	IsYou    bool   `json:"isYou"`
 }
 
 type Card struct {
 	Suit  string `json:"suit"`  // "back" for face-down, or actual suit
 	Value string `json:"value"` // "hidden" for face-down, or actual value
 	Index int    `json:"index"` // Position in grid (0-5)
+}
+
+// ActionPayload for game actions
+type ActionPayload struct {
+	Action string          `json:"action"` // "initial_flip", "draw_deck", "draw_discard", "swap_card", "discard_flip"
+	Data   json.RawMessage `json:"data"`
+}
+
+// CardIndexData for actions that require a card index
+type CardIndexData struct {
+	Index int `json:"index"` // 0-5
+}
+
+// ErrorPayload for action errors
+type ErrorPayload struct {
+	Error string `json:"error"`
 }
 
 // Global game hub instance
@@ -408,5 +425,158 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 		default:
 			log.Printf("Unknown message type: %s", msg.Type)
 		}
+	}
+}
+
+// sendError sends an error message to a specific client
+func sendError(conn *websocket.Conn, errorMsg string) {
+	errPayload, _ := json.Marshal(ErrorPayload{Error: errorMsg})
+	msg := GameMessage{
+		Type:    "error",
+		Payload: errPayload,
+	}
+	if err := conn.WriteJSON(msg); err != nil {
+		log.Printf("Failed to send error message: %v", err)
+	}
+}
+
+// broadcastGameState broadcasts the current game state to all clients in the room
+func broadcastGameState(room *GameRoom, gameID int, state *business.FullGameState) {
+	// Get game from database for status
+	game, err := gameRepo.GetGameByID(context.Background(), gameID)
+	if err != nil {
+		log.Printf("Failed to get game: %v", err)
+		return
+	}
+
+	// Get players with usernames
+	players, err := gameRepo.GetGamePlayers(context.Background(), gameID)
+	if err != nil {
+		log.Printf("Failed to get players: %v", err)
+		return
+	}
+
+	// Send personalized state to each connected client
+	room.mu.RLock()
+	defer room.mu.RUnlock()
+
+	for conn, userID := range room.clients {
+		statePayload := buildGameStatePayload(game, state, players, userID)
+		payload, _ := json.Marshal(statePayload)
+		msg := GameMessage{
+			Type:    "state",
+			Payload: payload,
+		}
+
+		if err := conn.WriteJSON(msg); err != nil {
+			log.Printf("Failed to send state to user %s: %v", userID, err)
+		}
+	}
+}
+
+// buildGameStatePayload creates a personalized state payload for a specific user
+func buildGameStatePayload(game *database.Game, state *business.FullGameState, dbPlayers []*database.GamePlayer, viewerUserID string) GameStatePayload {
+	// Build player info list
+	playerInfos := make([]PlayerInfo, len(dbPlayers))
+	for i, p := range dbPlayers {
+		playerInfos[i] = PlayerInfo{
+			UserID:   p.UserID,
+			Username: p.Username,
+			Score:    p.Score,
+			IsActive: p.IsActive,
+			IsYou:    p.UserID == viewerUserID,
+		}
+	}
+
+	// If no game state yet (waiting for players), return minimal payload
+	if state == nil {
+		return GameStatePayload{
+			GameID:          game.GameID,
+			Status:          game.Status,
+			Phase:           "waiting",
+			CurrentPlayerID: "",
+			CurrentUserId:   viewerUserID,
+			CurrentTurn:     0,
+			Players:         playerInfos,
+			YourCards:       []Card{},
+			OpponentCards:   []Card{},
+			DrawnCard:       nil,
+			DiscardTopCard:  nil,
+			DeckCount:       0,
+		}
+	}
+
+	// Find viewer's player index
+	var yourCards []Card
+	var opponentCards []Card
+	var currentPlayerID string
+
+	if len(state.Players) > 0 {
+		currentPlayerID = state.Players[state.CurrentTurnIdx].UserID
+	}
+
+	for _, player := range state.Players {
+		cards := make([]Card, 6)
+		isViewer := player.UserID == viewerUserID
+
+		for i := 0; i < 6; i++ {
+			if player.FaceUp[i] {
+				// Show actual card if face-up (visible to everyone)
+				cards[i] = Card{
+					Suit:  player.Hand[i].Suit,
+					Value: player.Hand[i].Rank,
+					Index: i,
+				}
+			} else {
+				// Hide face-down cards
+				cards[i] = Card{
+					Suit:  "back",
+					Value: "hidden",
+					Index: i,
+				}
+			}
+		}
+
+		if isViewer {
+			yourCards = cards
+		} else {
+			opponentCards = cards
+		}
+	}
+
+	// Convert drawn card (only show to current player if it's their turn)
+	var drawnCard *Card
+	if state.DrawnCard != nil && currentPlayerID == viewerUserID {
+		drawnCard = &Card{
+			Suit:  state.DrawnCard.Suit,
+			Value: state.DrawnCard.Rank,
+			Index: -1, // Not in grid yet
+		}
+	}
+
+	// Convert discard pile top card
+	var discardTopCard *Card
+	if len(state.DiscardPile) > 0 {
+		topCard := state.DiscardPile[len(state.DiscardPile)-1]
+		discardTopCard = &Card{
+			Suit:  topCard.Suit,
+			Value: topCard.Rank,
+			Index: -1,
+		}
+	}
+
+	return GameStatePayload{
+		GameID:          game.GameID,
+		Status:          game.Status,
+		Phase:           string(state.Phase),
+		CurrentPlayerID: currentPlayerID,
+		CurrentUserId:   viewerUserID,
+		CurrentTurn:     state.CurrentTurnIdx,
+		Players:         playerInfos,
+		YourCards:       yourCards,
+		OpponentCards:   opponentCards,
+		DrawnCard:       drawnCard,
+		DiscardTopCard:  discardTopCard,
+		DeckCount:       len(state.Deck),
 	}
 }
