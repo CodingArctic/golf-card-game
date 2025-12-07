@@ -12,6 +12,7 @@ export interface RegisterCredentials {
   username: string;
   email: string;
   password: string;
+  nonce?: string;
 }
 
 // Simple response structure for custom token authentication
@@ -90,6 +91,16 @@ export async function loginUser(
   return fetchApi<LoginResponse>('/login', {
     method: 'POST',
     body: JSON.stringify(credentials),
+  });
+}
+
+/**
+ * Gets a registration nonce token
+ * @returns A promise that resolves to the nonce token
+ */
+export async function getRegistrationNonce(): Promise<ApiResponse<{ nonce: string }>> {
+  return fetchApi<{ nonce: string }>('/register/nonce', {
+    method: 'GET',
   });
 }
 
