@@ -327,7 +327,7 @@ export default function DashPage() {
                                             Game #{game.gameId}
                                         </p>
                                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            Status: {game.status} • Players: {game.playerCount}/{game.maxPlayers}
+                                            Status: {titleCase(game.status)} • Players: {game.playerCount}/{game.maxPlayers}
                                         </p>
                                     </div>
                                     <button
