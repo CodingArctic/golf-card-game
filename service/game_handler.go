@@ -53,12 +53,18 @@ type ChatPayload struct {
 
 // GameStatePayload represents the current state of the game
 type GameStatePayload struct {
-	GameID        int          `json:"gameId"`
-	Status        string       `json:"status"`
-	CurrentTurn   int          `json:"currentTurn"`
-	Players       []PlayerInfo `json:"players"`
-	YourCards     []Card       `json:"yourCards"`
-	OpponentCards []Card       `json:"opponentCards"`
+	GameID          int          `json:"gameId"`
+	Status          string       `json:"status"`
+	Phase           string       `json:"phase"`
+	CurrentPlayerID string       `json:"currentPlayerId"`
+	CurrentUserId   string       `json:"currentUserId"`
+	CurrentTurn     int          `json:"currentTurn"`
+	Players         []PlayerInfo `json:"players"`
+	YourCards       []Card       `json:"yourCards"`
+	OpponentCards   []Card       `json:"opponentCards"`
+	DrawnCard       *Card        `json:"drawnCard"`
+	DiscardTopCard  *Card        `json:"discardTopCard"`
+	DeckCount       int          `json:"deckCount"`
 }
 
 type PlayerInfo struct {
@@ -200,7 +206,7 @@ func (r *GameRoom) Run() {
 }
 
 func (r *GameRoom) sendGameState(conn *websocket.Conn, userID string) {
-	if gameRepo == nil {
+	if gameRepo == nil || gameService == nil {
 		return
 	}
 
@@ -217,37 +223,59 @@ func (r *GameRoom) sendGameState(conn *websocket.Conn, userID string) {
 		return
 	}
 
-	// Build player info
-	var playerInfos []PlayerInfo
-	for _, p := range players {
-		if p.IsActive {
-			playerInfos = append(playerInfos, PlayerInfo{
-				UserID:   p.UserID,
-				Username: p.Username,
-				Score:    p.Score,
-				IsActive: p.IsActive,
-			})
+	// Try to load existing game state
+	stateJSON, _, err := gameRepo.LoadGameState(ctx, r.gameID)
+	var state *business.FullGameState
+
+	if err != nil {
+		// No state exists yet - check if we should initialize
+		if game.Status == "in_progress" {
+			// Game just started, initialize the state
+			activePlayers := []string{}
+			for _, p := range players {
+				if p.IsActive {
+					activePlayers = append(activePlayers, p.UserID)
+				}
+			}
+
+			if len(activePlayers) == 2 {
+				newState, err := gameService.InitializeGame(ctx, r.gameID, activePlayers)
+				if err != nil {
+					log.Printf("Error initializing game: %v", err)
+					return
+				}
+
+				// Save the initial state
+				stateJSON, _ := json.Marshal(newState)
+				if err := gameRepo.SaveGameState(ctx, r.gameID, stateJSON); err != nil {
+					log.Printf("Error saving initial state: %v", err)
+					return
+				}
+
+				state = newState
+			} else {
+				log.Printf("Cannot initialize game: need 2 active players, have %d", len(activePlayers))
+				// Send waiting state without game state
+				state = nil
+			}
+		} else {
+			// Game not started yet, send waiting state
+			log.Printf("Game in waiting_for_players status, sending lobby state")
+			state = nil
 		}
+	} else {
+		// Parse existing state
+		var parsedState business.FullGameState
+		if err := json.Unmarshal(stateJSON, &parsedState); err != nil {
+			log.Printf("Error parsing game state: %v", err)
+			return
+		}
+		state = &parsedState
 	}
 
-	// Initialize face-down cards (6 cards each player in golf)
-	yourCards := make([]Card, 6)
-	opponentCards := make([]Card, 6)
-	for i := 0; i < 6; i++ {
-		yourCards[i] = Card{Suit: "back", Value: "hidden", Index: i}
-		opponentCards[i] = Card{Suit: "back", Value: "hidden", Index: i}
-	}
-
-	state := GameStatePayload{
-		GameID:        game.GameID,
-		Status:        game.Status,
-		CurrentTurn:   0, // TODO: Get from game state
-		Players:       playerInfos,
-		YourCards:     yourCards,
-		OpponentCards: opponentCards,
-	}
-
-	payload, _ := json.Marshal(state)
+	// Build and send personalized state
+	statePayload := buildGameStatePayload(game, state, players, userID)
+	payload, _ := json.Marshal(statePayload)
 	msg := GameMessage{
 		Type:    "state",
 		Payload: payload,
@@ -417,10 +445,101 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "action":
-			// TODO: Handle game actions (draw card, flip card, end turn, etc.)
-			log.Printf("Game action received from user %s in game %d", userID, gameID)
-			// For now, just echo back
-			room.broadcast <- msg
+			// Handle game actions
+			var actionPayload ActionPayload
+			if err := json.Unmarshal(msg.Payload, &actionPayload); err != nil {
+				log.Printf("Failed to unmarshal action payload: %v", err)
+				sendError(conn, "Invalid action payload")
+				continue
+			}
+
+			// Load current game state
+			stateJSON, version, err := gameRepo.LoadGameState(context.Background(), gameID)
+			if err != nil {
+				log.Printf("Failed to load game state: %v", err)
+				sendError(conn, "Failed to load game state")
+				continue
+			}
+
+			var state business.FullGameState
+			if err := json.Unmarshal(stateJSON, &state); err != nil {
+				log.Printf("Failed to unmarshal game state: %v", err)
+				sendError(conn, "Failed to parse game state")
+				continue
+			}
+
+			// Execute action based on type
+			var actionErr error
+			switch actionPayload.Action {
+			case "initial_flip":
+				var data CardIndexData
+				if err := json.Unmarshal(actionPayload.Data, &data); err != nil {
+					sendError(conn, "Invalid card index")
+					continue
+				}
+				actionErr = gameService.InitialFlipCard(&state, userID, data.Index)
+
+			case "draw_deck":
+				actionErr = gameService.DrawFromDeck(&state, userID)
+
+			case "draw_discard":
+				actionErr = gameService.DrawFromDiscard(&state, userID)
+
+			case "swap_card":
+				var data CardIndexData
+				if err := json.Unmarshal(actionPayload.Data, &data); err != nil {
+					sendError(conn, "Invalid card index")
+					continue
+				}
+				actionErr = gameService.SwapCard(&state, userID, data.Index)
+
+			case "discard_flip":
+				var data CardIndexData
+				if err := json.Unmarshal(actionPayload.Data, &data); err != nil {
+					sendError(conn, "Invalid card index")
+					continue
+				}
+				actionErr = gameService.DiscardAndFlip(&state, userID, data.Index)
+
+			default:
+				sendError(conn, fmt.Sprintf("Unknown action: %s", actionPayload.Action))
+				continue
+			}
+
+			// Handle action errors
+			if actionErr != nil {
+				log.Printf("Action error for user %s: %v", userID, actionErr)
+				sendError(conn, actionErr.Error())
+				continue
+			}
+
+			// Save updated state with optimistic locking
+			updatedStateJSON, err := json.Marshal(state)
+			if err != nil {
+				log.Printf("Failed to marshal updated state: %v", err)
+				sendError(conn, "Failed to save game state")
+				continue
+			}
+
+			err = gameRepo.UpdateGameState(context.Background(), gameID, updatedStateJSON, version)
+			if err != nil {
+				log.Printf("Failed to update game state: %v", err)
+				sendError(conn, "Failed to save game state (version conflict)")
+				continue
+			}
+
+			// Check if game is finished
+			if state.Phase == business.PhaseFinished {
+				winnerUserID, err := gameService.FinishGame(context.Background(), &state)
+				if err != nil {
+					log.Printf("Failed to finish game: %v", err)
+				} else {
+					log.Printf("Game %d finished, winner: %s", gameID, winnerUserID)
+				}
+			}
+
+			// Broadcast updated state to all players
+			broadcastGameState(room, gameID, &state)
 
 		default:
 			log.Printf("Unknown message type: %s", msg.Type)
