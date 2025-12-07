@@ -38,9 +38,11 @@ func main() {
 	// create business layer
 	userService := business.NewUserService(userRepo)
 	gameService := business.NewGameService(gameRepo, userRepo)
+	nonceManager := business.NewNonceManager()
 
 	// Set the services for HTTP handlers
 	service.SetUserService(userService)
+	service.SetNonceManager(nonceManager)
 	service.SetChatRepository(chatRepo)
 	service.SetGameRepository(gameRepo)
 	service.SetGameService(gameService)
@@ -52,6 +54,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Public endpoints for authentication
+	mux.HandleFunc("/api/register/nonce", service.GetRegistrationNonceHandler)
 	mux.HandleFunc("/api/register", service.RegisterHandler)
 	mux.HandleFunc("/api/login", service.LoginHandler)
 	mux.HandleFunc("/api/logout", service.LogoutHandler)
