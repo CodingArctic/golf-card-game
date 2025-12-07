@@ -38,6 +38,7 @@ type GameRepository interface {
 	GetGameByPublicID(ctx context.Context, publicID string) (*Game, error)
 	AddPlayer(ctx context.Context, gameID int, userID string, orderIndex int) error
 	UpdatePlayerStatus(ctx context.Context, gameID int, userID string, isActive bool, joinedAt *time.Time) error
+	UpdatePlayerScore(ctx context.Context, gameID int, userID string, score int) error
 	GetGamePlayers(ctx context.Context, gameID int) ([]*GamePlayer, error)
 	GetPendingInvitations(ctx context.Context, userID string) ([]*GameInvitation, error)
 	GetActiveGames(ctx context.Context, userID string) ([]*Game, error)
@@ -446,6 +447,14 @@ func (r *postgresGameRepo) UpdateGameStatus(ctx context.Context, gameID int, sta
 	_, err := r.pool.Exec(ctx,
 		`UPDATE games SET status = $2 WHERE game_id = $1`,
 		gameID, status)
+	return err
+}
+
+// UpdatePlayerScore updates a player's final score
+func (r *postgresGameRepo) UpdatePlayerScore(ctx context.Context, gameID int, userID string, score int) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE game_players SET score = $3 WHERE game_id = $1 AND user_id = $2`,
+		gameID, userID, score)
 	return err
 }
 
