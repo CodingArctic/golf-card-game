@@ -761,11 +761,27 @@ func CalculateScore(player *PlayerState) int {
 	return totalScore
 }
 
+// flipRemainingCards flips all face-down cards for all players
+func flipRemainingCards(state *FullGameState) {
+	for i := range state.Players {
+		player := &state.Players[i]
+		for j := 0; j < 6; j++ {
+			if !player.FaceUp[j] {
+				player.FaceUp[j] = true
+			}
+		}
+		player.AllCardsFlipped = true
+	}
+}
+
 // FinishGame calculates final scores, determines winner, and updates database
 func (s *GameService) FinishGame(ctx context.Context, state *FullGameState) (string, error) {
 	if state.Phase != PhaseFinished {
 		return "", errors.New("game is not finished yet")
 	}
+
+	// Flip all remaining cards before scoring
+	flipRemainingCards(state)
 
 	// Calculate scores for all players
 	scores := make(map[string]int)
@@ -791,10 +807,10 @@ func (s *GameService) FinishGame(ctx context.Context, state *FullGameState) (str
 		}
 	}
 
-	// Update game status to finished
-	err := s.gameRepo.UpdateGameStatus(ctx, state.GameID, "finished")
+	// Update game status to finished with winner and timestamp
+	err := s.gameRepo.FinishGame(ctx, state.GameID, winnerUserID)
 	if err != nil {
-		return "", fmt.Errorf("failed to update game status: %w", err)
+		return "", fmt.Errorf("failed to finish game: %w", err)
 	}
 
 	return winnerUserID, nil
