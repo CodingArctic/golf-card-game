@@ -256,11 +256,13 @@ function GameRoomContent() {
 					<p className="text-green-200">
 						Game #{gameState.gameId} • Status: {titleCase(gameState.status)} • Phase: {titleCase(gameState.phase)}
 					</p>
-					{isYourTurn && (
+					{isYourTurn && gameState.phase !== "initial_flip" ? (
 						<p className="text-yellow-300 font-semibold mt-2">
 							⭐ Your Turn
 						</p>
-					)}
+					) : <p className="text-white font-semibold mt-2">
+							⏲️ Waiting for {opponent?.username}'s turn
+						</p>}
 					{errorMessage && (
 						<div className="mt-2 p-3 bg-red-500/20 border border-red-500 rounded text-red-200">
 							{errorMessage}
