@@ -23,7 +23,7 @@ func NotFoundHandler(root http.FileSystem) http.Handler {
 			indexPath := filepath.Join(fullPath, "index.html")
 			if _, err := os.Stat(indexPath); err != nil {
 				// No index.html in directory, serve 404
-				serve404(w, r)
+				serve404(w)
 				return
 			}
 		} else if err != nil {
@@ -33,7 +33,7 @@ func NotFoundHandler(root http.FileSystem) http.Handler {
 				!strings.HasPrefix(path, "/_next/") &&
 				!strings.HasPrefix(path, "/static/") &&
 				!strings.Contains(path, ".") { // Likely a route, not a file
-				serve404(w, r)
+				serve404(w)
 				return
 			}
 		}
@@ -44,7 +44,7 @@ func NotFoundHandler(root http.FileSystem) http.Handler {
 }
 
 // serve404 serves the custom 404.html page
-func serve404(w http.ResponseWriter, r *http.Request) {
+func serve404(w http.ResponseWriter) {
 	notFoundPath := "./frontend/out/404.html"
 	content, err := os.ReadFile(notFoundPath)
 	if err != nil {
