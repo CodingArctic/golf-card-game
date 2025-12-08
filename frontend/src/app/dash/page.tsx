@@ -186,7 +186,7 @@ export default function DashPage() {
     const handleSendMessage = () => {
         if (inputValue.trim()) {
             if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-                console.warn('WebSocket is not connected');
+                console.warn('Lobby WebSocket is not connected');
                 return;
             }
 
