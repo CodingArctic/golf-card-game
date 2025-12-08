@@ -29,10 +29,12 @@ export default function DashPage() {
     const [activeGames, setActiveGames] = useState<Game[]>([]);
     const [inviteUsername, setInviteUsername] = useState('');
     const [selectedGameForInvite, setSelectedGameForInvite] = useState<number | null>(null);
+    const [onlinePlayers, setOnlinePlayers] = useState<string[]>([]);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const chatEndRef = useRef<HTMLDivElement>(null);
     const wsRef = useRef<WebSocket | null>(null);
+    const shouldReconnectRef = useRef(true);
 
     const scrollToBottom = () => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,6 +54,7 @@ export default function DashPage() {
         }, 10000);
         
         return () => {
+            shouldReconnectRef.current = false;
             if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
                 wsRef.current.close(1000, "Navigating away");
             }
@@ -145,21 +148,31 @@ export default function DashPage() {
         wsRef.current.onclose = () => {
             console.log(`WebSocket has disconnected`);
 
-            // attempt reconnect after 3sec
-            setTimeout(connectWebSocket, 3000);
+            // only attempt reconnect if component is still mounted
+            if (shouldReconnectRef.current) {
+                setTimeout(connectWebSocket, 3000);
+            }
         };
 
         wsRef.current.onmessage = (event) => {
             try {
-                const rawMessage = JSON.parse(event.data);
-                // Transform the server's message format to our Message interface
-                const message: Message = {
-                    id: Date.now().toString() + Math.random(),
-                    username: rawMessage.username || 'User',
-                    content: rawMessage.message,
-                    timestamp: rawMessage.time
-                };
-                setMessages((prevMessages) => [...prevMessages, message]);
+                const lobbyMessage = JSON.parse(event.data);
+                
+                if (lobbyMessage.type === 'chat') {
+                    // Handle chat messages
+                    const rawMessage = lobbyMessage.payload;
+                    const message: Message = {
+                        id: Date.now().toString() + Math.random(),
+                        username: rawMessage.username || 'User',
+                        content: rawMessage.message,
+                        timestamp: rawMessage.time
+                    };
+                    setMessages((prevMessages) => [...prevMessages, message]);
+                } else if (lobbyMessage.type === 'player_list') {
+                    // Handle player list updates
+                    const playerList = lobbyMessage.payload.players || [];
+                    setOnlinePlayers(playerList);
+                }
             } catch (error) {
                 console.error('Failed to parse message:', error);
             }
@@ -196,6 +209,7 @@ export default function DashPage() {
             setError(response.error);
         } else {
             // Close WebSocket connection
+            shouldReconnectRef.current = false;
             if (wsRef.current) {
                 wsRef.current.close();
             }
@@ -368,6 +382,28 @@ export default function DashPage() {
             </main>
 
             <aside className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
+                {/* Online Players */}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                        Online ({onlinePlayers.length})
+                    </h3>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {onlinePlayers.length === 0 ? (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">No players online</p>
+                        ) : (
+                            onlinePlayers.map((player, index) => (
+                                <div 
+                                    key={index} 
+                                    className="text-sm text-gray-800 dark:text-gray-200 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    {player}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
                 {/* Chat Header */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Lobby Chat</h2>
