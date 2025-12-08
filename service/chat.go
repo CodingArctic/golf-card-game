@@ -7,8 +7,23 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
+)
+
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
+
+	// Maximum message size allowed from peer.
+	maxMessageSize = 512 * 1024
 )
 
 // upgrader converts an incoming HTTP request to a WebSocket connection.
@@ -18,6 +33,8 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Allow all origins for local development
 	},
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 }
 
 // ChatMessage is the payload exchanged over WebSockets.
@@ -202,6 +219,31 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		Hub.unregister <- conn
+	}()
+
+	// Configure connection for heartbeat
+	conn.SetReadLimit(maxMessageSize)
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
+	// Start ping ticker
+	ticker := time.NewTicker(pingPeriod)
+	defer ticker.Stop()
+
+	// Start goroutine to send pings
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
+			}
+		}
 	}()
 
 	for {
