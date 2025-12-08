@@ -415,13 +415,19 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	ticker := time.NewTicker(pingPeriod)
 	defer ticker.Stop()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	// Start goroutine to send pings
 	go func() {
 		for {
 			select {
+			case <-done:
+				return
 			case <-ticker.C:
 				conn.SetWriteDeadline(time.Now().Add(writeWait))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					log.Printf("Ping error: %v", err)
 					return
 				}
 			}

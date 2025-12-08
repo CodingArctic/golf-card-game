@@ -17,10 +17,10 @@ const (
 	writeWait = 10 * time.Second
 
 	// Time allowed to read the next pong message from the peer.
-	pongWait = 30 * time.Second
+	pongWait = 90 * time.Second
 
 	// Send pings to peer with this period. Must be less than pongWait.
-	pingPeriod = 15 * time.Second
+	pingPeriod = 20 * time.Second
 
 	// Maximum message size allowed from peer.
 	maxMessageSize = 512 * 1024
@@ -233,13 +233,19 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 	ticker := time.NewTicker(pingPeriod)
 	defer ticker.Stop()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	// Start goroutine to send pings
 	go func() {
 		for {
 			select {
+			case <-done:
+				return
 			case <-ticker.C:
 				conn.SetWriteDeadline(time.Now().Add(writeWait))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					log.Printf("Ping error: %v", err)
 					return
 				}
 			}
