@@ -9,6 +9,7 @@ import {
     acceptInvitation,
     declineInvitation,
     listGames,
+    logoutUser,
     type GameInvitation,
     type Game,
 } from '@/utils/api';
@@ -189,6 +190,20 @@ export default function DashPage() {
         }
     };
 
+    const handleLogout = async () => {
+        const response = await logoutUser();
+        if (response.error) {
+            setError(response.error);
+        } else {
+            // Close WebSocket connection
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+            // Redirect to home page
+            router.push('/');
+        }
+    };
+
     // Credit to Scott Sauyet https://stackoverflow.com/questions/64489395/converting-snake-case-string-to-title-case
 	const titleCase = (s: string) =>
 		s.replace(/^[-_]*(.)/, (_, c) => c.toUpperCase())
@@ -199,15 +214,24 @@ export default function DashPage() {
             <main className='flex-1 p-6 overflow-y-auto'>
                 <div className="flex items-center justify-between mb-6">
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-                    <button
-                        onClick={loadGames}
-                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                        title="Refresh games and invitations"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={loadGames}
+                            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                            title="Refresh games and invitations"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={handleLogout}
+                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                            title="Log out"
+                        >
+                            Log Out
+                        </button>
+                    </div>
                 </div>
 
                 {/* Error/Success Messages */}
