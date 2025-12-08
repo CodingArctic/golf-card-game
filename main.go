@@ -22,6 +22,7 @@ func main() {
 	}
 
 	connectionString := os.Getenv("CONNECTION_STRING")
+	hostAddress := os.Getenv("HOST_ADDRESS")
 
 	// create database connection pool
 	db, err := database.NewPool(ctx, connectionString)
@@ -81,6 +82,6 @@ func main() {
 
 	// If we hadn't created a custom mux to enable middleware,
 	// the second param would be nil, which uses http.DefaultServeMux.
-	log.Print("listening on http://localhost:8080")
-	log.Fatal(http.ListenAndServe("localhost:8080", protected))
+	log.Print("listening on: http://" + hostAddress)
+	log.Fatal(http.ListenAndServe(hostAddress, protected))
 }
