@@ -460,10 +460,10 @@ function GameRoomContent() {
 			)}
 
 			{/* Chat sidebar */}
-			<div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col">
-				<div className="p-4 border-b border-gray-800">
-					<h2 className="text-xl font-semibold text-white">Game Chat</h2>
-					<p className="text-sm text-gray-400">
+			<div className="w-80 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col">
+				<div className="p-4 border-b border-gray-200 dark:border-gray-800">
+					<h2 className="text-xl font-semibold text-gray-900 dark:text-white">Game Chat</h2>
+					<p className="text-sm text-gray-500 dark:text-gray-400">
 						{wsConnected ? "Connected" : "Disconnected"}
 					</p>
 				</div>
@@ -473,21 +473,21 @@ function GameRoomContent() {
 					{messages.map((msg, idx) => (
 						<div key={idx} className="text-sm">
 							<div className="flex items-baseline gap-2">
-								<span className="font-semibold text-blue-400">
+								<span className="font-semibold text-blue-600 dark:text-blue-400">
 									{msg.username}
 								</span>
-								<span className="text-xs text-gray-500">
+								<span className="text-xs text-gray-400 dark:text-gray-500">
 									{new Date(msg.time).toLocaleTimeString()}
 								</span>
 							</div>
-							<p className="text-gray-300 mt-1">{msg.message}</p>
+							<p className="text-gray-700 dark:text-gray-300 mt-1">{msg.message}</p>
 						</div>
 					))}
 					<div ref={messagesEndRef} />
 				</div>
 
 				{/* Input */}
-				<div className="p-4 border-t border-gray-800">
+				<div className="p-4 border-t border-gray-200 dark:border-gray-800">
 					<div className="flex gap-2">
 						<input
 							type="text"
@@ -495,7 +495,7 @@ function GameRoomContent() {
 							onChange={(e) => setMessageInput(e.target.value)}
 							onKeyPress={handleKeyPress}
 							placeholder="Type a message..."
-							className="flex-1 px-3 py-2 bg-gray-800 text-white rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+							className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white rounded border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none"
 						/>
 						<button
 							type="button"
