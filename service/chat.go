@@ -27,6 +27,17 @@ type ChatMessage struct {
 	Time     string `json:"time"`
 }
 
+// LobbyMessage wraps different message types for the lobby
+type LobbyMessage struct {
+	Type    string      `json:"type"` // "chat", "player_list"
+	Payload interface{} `json:"payload"`
+}
+
+// PlayerListPayload contains the list of online players
+type PlayerListPayload struct {
+	Players []string `json:"players"`
+}
+
 var chatRepo database.ChatRepository
 
 func SetChatRepository(repo database.ChatRepository) {
@@ -72,17 +83,23 @@ func (h *ChatHub) Run() {
 					log.Printf("Error fetching chat history: %v", err)
 				} else {
 					for _, msg := range messages {
-						chatMsg := ChatMessage{
-							Message:  msg.MessageText,
-							Username: msg.SenderUsername,
-							Time:     msg.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+						lobbyMsg := LobbyMessage{
+							Type: "chat",
+							Payload: ChatMessage{
+								Message:  msg.MessageText,
+								Username: msg.SenderUsername,
+								Time:     msg.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+							},
 						}
-						if err := reg.conn.WriteJSON(chatMsg); err != nil {
+						if err := reg.conn.WriteJSON(lobbyMsg); err != nil {
 							log.Printf("Error sending history: %v", err)
 						}
 					}
 				}
 			}
+
+			// Broadcast updated player list to all clients
+			h.broadcastPlayerList()
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -92,11 +109,18 @@ func (h *ChatHub) Run() {
 			}
 			h.mu.Unlock()
 
+			// Broadcast updated player list to all clients
+			h.broadcastPlayerList()
+
 		case message := <-h.broadcast:
-			// Broadcast to all connected clients
+			// Broadcast chat message to all connected clients
 			h.mu.RLock()
+			lobbyMsg := LobbyMessage{
+				Type:    "chat",
+				Payload: message,
+			}
 			for client := range h.clients {
-				if err := client.WriteJSON(message); err != nil {
+				if err := client.WriteJSON(lobbyMsg); err != nil {
 					log.Printf("Error broadcasting: %v", err)
 					client.Close()
 					delete(h.clients, client)
@@ -105,6 +129,46 @@ func (h *ChatHub) Run() {
 			h.mu.RUnlock()
 		}
 	}
+}
+
+// broadcastPlayerList sends the current list of online players to all connected clients
+func (h *ChatHub) broadcastPlayerList() {
+	ctx := context.Background()
+
+	h.mu.RLock()
+	userIDs := make([]string, 0, len(h.clients))
+	for _, userID := range h.clients {
+		userIDs = append(userIDs, userID)
+	}
+	h.mu.RUnlock()
+
+	// Get usernames for all connected users
+	usernames := make([]string, 0, len(userIDs))
+	for _, userID := range userIDs {
+		user, err := userService.GetUserByID(ctx, userID)
+		if err != nil {
+			log.Printf("Error getting user: %v", err)
+			continue
+		}
+		usernames = append(usernames, user.Username)
+	}
+
+	// Create player list message
+	lobbyMsg := LobbyMessage{
+		Type: "player_list",
+		Payload: PlayerListPayload{
+			Players: usernames,
+		},
+	}
+
+	// Broadcast to all clients
+	h.mu.RLock()
+	for client := range h.clients {
+		if err := client.WriteJSON(lobbyMsg); err != nil {
+			log.Printf("Error broadcasting player list: %v", err)
+		}
+	}
+	h.mu.RUnlock()
 }
 
 func ChatHandler(w http.ResponseWriter, r *http.Request) {
