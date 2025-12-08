@@ -238,20 +238,14 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Start goroutine to send pings
 	go func() {
-		log.Printf("Starting ping goroutine for user %s", userID)
 		for {
 			select {
 			case <-done:
-				log.Printf("Ping goroutine stopping for user %s", userID)
 				return
 			case <-ticker.C:
-				log.Printf("Sending ping to user %s", userID)
-				conn.SetWriteDeadline(time.Now().Add(writeWait))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-					log.Printf("Ping error for user %s: %v", userID, err)
 					return
 				}
-				log.Printf("Ping sent successfully to user %s", userID)
 			}
 		}
 	}()
