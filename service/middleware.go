@@ -17,13 +17,16 @@ func SessionMiddleware(next http.Handler) http.Handler {
 		path := strings.TrimSuffix(r.URL.Path, "/")
 
 		// Allow unauthenticated access for public endpoints
-		if path == "" ||
+		if path == "/" ||
+			path == "" ||
+			path == "/index.txt" ||
+			path == "/favicon.ico" ||
 			path == "/api/login" ||
 			path == "/api/register" ||
 			path == "/api/register/nonce" ||
 			path == "/api/logout" ||
-			path == "/login" ||
-			path == "/register" ||
+			strings.HasPrefix(r.URL.Path, "/login") ||
+			strings.HasPrefix(r.URL.Path, "/register") ||
 			strings.HasPrefix(r.URL.Path, "/static/") ||
 			strings.HasPrefix(r.URL.Path, "/_next/") {
 			next.ServeHTTP(w, r)
