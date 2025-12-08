@@ -87,7 +87,7 @@ function GameRoomContent() {
 		wsRef.current = new WebSocket(wsUrl);
 
 		wsRef.current.onopen = () => {
-			console.log("Connected to game WebSocket");
+			console.log("Game WebSocket connected");
 			setWsConnected(true);
 		};
 
@@ -124,11 +124,11 @@ function GameRoomContent() {
 		};
 
 		wsRef.current.onerror = (error) => {
-			console.error("WebSocket error:", error);
+			console.error("Game WebSocket error:", error);
 		};
 
 		wsRef.current.onclose = () => {
-			console.log("WebSocket closed");
+			console.log("Game WebSocket closed");
 			setWsConnected(false);
 		};
 

@@ -141,16 +141,16 @@ export default function DashPage() {
         wsRef.current = new WebSocket(wsUrl);
 
         wsRef.current.onopen = () => {
-            console.log(`WebSocket has connected`);
+            console.log(`Lobby WebSocket has connected`);
         };
 
         wsRef.current.onerror = (err) => {
-            console.log(`WebSocket error occurred: `, err);
+            console.log(`Lobby WebSocket error occurred: `, err);
         };
 
         // usually means a network connection failure, but client is still open
         wsRef.current.onclose = () => {
-            console.log(`WebSocket has disconnected`);
+            console.log(`Lobby WebSocket has disconnected`);
 
             // only attempt reconnect if component is still mounted
             if (shouldReconnectRef.current) {
