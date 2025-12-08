@@ -36,12 +36,16 @@ export default function DashPage() {
     const wsRef = useRef<WebSocket | null>(null);
     const shouldReconnectRef = useRef(true);
 
-    const scrollToBottom = () => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+        chatEndRef.current?.scrollIntoView({ behavior });
     };
 
     useEffect(() => {
-        scrollToBottom();
+        // Use a small delay to ensure DOM is fully rendered
+        const timeoutId = setTimeout(() => {
+            scrollToBottom('auto');
+        }, 0);
+        return () => clearTimeout(timeoutId);
     }, [messages]);
 
     useEffect(() => {
