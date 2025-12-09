@@ -140,13 +140,21 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 		return fmt.Errorf("failed to get game players: %w", err)
 	}
 
-	// Check if game is full
-	if len(players) >= game.MaxPlayers {
+	// Filter out players who have declined or left (left_at is set)
+	activePlayers := make([]*database.GamePlayer, 0)
+	for _, player := range players {
+		if player.LeftAt == nil {
+			activePlayers = append(activePlayers, player)
+		}
+	}
+
+	// Check if game is full (only count active/pending players)
+	if len(activePlayers) >= game.MaxPlayers {
 		return ErrGameFull
 	}
 
-	// Check if user is already in the game (active or invited)
-	for _, player := range players {
+	// Check if user is already in the game (active or invited, but not declined)
+	for _, player := range activePlayers {
 		if player.UserID == invitedUserID {
 			if player.IsActive {
 				return ErrAlreadyInGame
@@ -157,7 +165,7 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 
 	// Validate inviter is in the game and active
 	inviterInGame := false
-	for _, player := range players {
+	for _, player := range activePlayers {
 		if player.UserID == inviterUserID && player.IsActive {
 			inviterInGame = true
 			break
@@ -169,8 +177,8 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 	}
 
 	// Add player with is_active=false, joined_at=NULL (pending invitation)
-	// Order index is based on current player count
-	orderIndex := len(players)
+	// Order index is based on current active/pending player count
+	orderIndex := len(activePlayers)
 	err = s.gameRepo.AddPlayer(ctx, gameID, invitedUserID, orderIndex)
 	if err != nil {
 		return fmt.Errorf("failed to invite player: %w", err)
