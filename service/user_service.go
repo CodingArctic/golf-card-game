@@ -13,6 +13,7 @@ import (
 
 var userService *business.UserService
 var nonceManager *business.NonceManager
+var emailService *EmailService
 
 // SetUserService sets the user service dependency
 func SetUserService(us *business.UserService) {
@@ -22,6 +23,11 @@ func SetUserService(us *business.UserService) {
 // SetNonceManager sets the nonce manager dependency
 func SetNonceManager(nm *business.NonceManager) {
 	nonceManager = nm
+}
+
+// SetEmailService sets the email service dependency
+func SetEmailService(es *EmailService) {
+	emailService = es
 }
 
 type registerRequest struct {
@@ -100,6 +106,16 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		// Generic bad request for validation errors
 		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
+	}
+
+	// Send welcome email (non-blocking, don't fail registration if email fails)
+	if emailService != nil {
+		go func() {
+			if err := emailService.SendWelcomeEmail(user.Email, user.Username); err != nil {
+				// Log error but don't fail the registration
+				fmt.Printf("Failed to send welcome email to %s: %v\n", user.Email, err)
+			}
+		}()
 	}
 
 	jsonResponse(w, http.StatusCreated, map[string]interface{}{
