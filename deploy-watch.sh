@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Ensure PATH includes necessary binaries
+export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin:$HOME/go/bin:$PATH"
+
 echo "Watching for changes and auto-deploying..."
 
 while true; do
