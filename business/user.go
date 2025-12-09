@@ -39,13 +39,22 @@ func (s *UserService) RegisterUser(ctx context.Context, username, password, emai
 		return nil, errors.New("password must be at least 8 characters")
 	}
 
-	// Check if user already exists
+	// Check if username already exists
 	exists, err := s.userRepo.UserExists(ctx, username)
 	if err != nil {
 		return nil, err
 	}
 	if exists {
 		return nil, database.ErrUserAlreadyExists
+	}
+
+	// Check if email already exists
+	emailExists, err := s.userRepo.EmailExists(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if emailExists {
+		return nil, database.ErrEmailAlreadyExists
 	}
 
 	// Hash the password

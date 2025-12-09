@@ -21,6 +21,7 @@ type UserRepository interface {
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	GetUserByID(ctx context.Context, userID string) (*User, error)
 	UserExists(ctx context.Context, username string) (bool, error)
+	EmailExists(ctx context.Context, email string) (bool, error)
 	CreateUser(ctx context.Context, username, hashedPassword, email string) (*User, error)
 	CreateSession(ctx context.Context, userID, token string, expiresAt time.Time) error
 	ValidateSession(ctx context.Context, token string) (string, error) // Returns userID if valid
@@ -133,6 +134,17 @@ func (r *postgresUserRepo) UserExists(ctx context.Context, username string) (boo
 	var exists bool
 	err := r.pool.QueryRow(ctx,
 		"SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", username).
+		Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func (r *postgresUserRepo) EmailExists(ctx context.Context, email string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		"SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).
 		Scan(&exists)
 	if err != nil {
 		return false, err
