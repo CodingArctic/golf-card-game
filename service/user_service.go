@@ -1,11 +1,14 @@
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"golf-card-game/business"
 	"golf-card-game/database"
 	"net/http"
+	"os"
 )
 
 var userService *business.UserService
@@ -22,10 +25,11 @@ func SetNonceManager(nm *business.NonceManager) {
 }
 
 type registerRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
-	Nonce    string `json:"nonce"`
+	Username       string `json:"username"`
+	Password       string `json:"password"`
+	Email          string `json:"email"`
+	Nonce          string `json:"nonce"`
+	TurnstileToken string `json:"turnstileToken"`
 }
 
 type loginRequest struct {
@@ -67,8 +71,14 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate nonce before proceeding with registration
+	// Verify Turnstile token
 	ipAddress := getClientIP(r)
+	if err := verifyTurnstileToken(req.TurnstileToken, ipAddress); err != nil {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Captcha verification failed"})
+		return
+	}
+
+	// Validate nonce before proceeding with registration
 	userAgent := r.Header.Get("User-Agent")
 
 	if err := nonceManager.ValidateNonce(req.Nonce, ipAddress, userAgent); err != nil {
@@ -199,4 +209,51 @@ func getClientIP(r *http.Request) string {
 		}
 	}
 	return ip
+}
+
+// verifyTurnstileToken verifies a Cloudflare Turnstile token
+func verifyTurnstileToken(token, remoteIP string) error {
+	secretKey := os.Getenv("TURNSTILE_SECRET_KEY")
+	if secretKey == "" {
+		return fmt.Errorf("turnstile secret key not configured")
+	}
+
+	// Prepare the request to Cloudflare's siteverify API
+	reqBody := map[string]string{
+		"secret":   secretKey,
+		"response": token,
+		"remoteip": remoteIP,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	resp, err := http.Post(
+		"https://challenges.cloudflare.com/turnstile/v0/siteverify",
+		"application/json",
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to verify token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success     bool     `json:"success"`
+		ErrorCodes  []string `json:"error-codes"`
+		ChallengeTS string   `json:"challenge_ts"`
+		Hostname    string   `json:"hostname"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !result.Success {
+		return fmt.Errorf("verification failed: %v", result.ErrorCodes)
+	}
+
+	return nil
 }
