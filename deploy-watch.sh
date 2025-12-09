@@ -21,10 +21,9 @@ while true; do
         echo "Building frontend..."
         cd frontend && npm run build && cd ..
         
-        # Kill old process and start new one
+        # Restart systemd service
         echo "Restarting service..."
-        pkill -f golf-card-game
-        ./golf-card-game &
+        sudo systemctl restart golf
         
         echo "Deployment complete at $(date)"
     fi
