@@ -18,6 +18,7 @@ export default function RegisterPage() {
   });
   const [nonce, setNonce] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
   const [errors, setErrors] = useState({
     username: '',
     email: '',
@@ -95,7 +96,34 @@ export default function RegisterPage() {
     (window as any).handleTurnstileSuccess = (token: string) => {
       setTurnstileToken(token);
     };
-  }, []);
+
+    // Render Turnstile widget after script loads
+    const renderWidget = () => {
+      if (typeof (window as any).turnstile !== 'undefined' && !turnstileWidgetId) {
+        const widgetId = (window as any).turnstile.render('#turnstile-widget', {
+          sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA',
+          callback: 'handleTurnstileSuccess',
+          theme: 'auto',
+        });
+        setTurnstileWidgetId(widgetId);
+      }
+    };
+
+    // Try to render immediately if script already loaded
+    if (typeof (window as any).turnstile !== 'undefined') {
+      renderWidget();
+    } else {
+      // Otherwise wait for script to load
+      const checkInterval = setInterval(() => {
+        if (typeof (window as any).turnstile !== 'undefined') {
+          renderWidget();
+          clearInterval(checkInterval);
+        }
+      }, 100);
+
+      return () => clearInterval(checkInterval);
+    }
+  }, [turnstileWidgetId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +151,11 @@ export default function RegisterPage() {
 
       if (response.error) {
         setApiError(response.error);
+        // Reset Turnstile widget after failed attempt
+        if (turnstileWidgetId !== null && typeof (window as any).turnstile !== 'undefined') {
+          (window as any).turnstile.reset(turnstileWidgetId);
+        }
+        setTurnstileToken(null);
       } else {
         // Registration successful, redirect to login
         router.push('/login?registered=true');
@@ -268,17 +301,11 @@ export default function RegisterPage() {
 
           {/* Cloudflare Turnstile */}
           <div className="flex justify-center">
-            <div 
-              id="turnstile-widget"
-              className="cf-turnstile" 
-              data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
-              data-callback="handleTurnstileSuccess"
-              data-theme="auto"
-            ></div>
+            <div id="turnstile-widget"></div>
           </div>
 
           <Script 
-            src="https://challenges.cloudflare.com/turnstile/v0/api.js" 
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" 
             strategy="lazyOnload"
           />
 
