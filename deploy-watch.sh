@@ -3,9 +3,6 @@
 echo "Watching for changes and auto-deploying..."
 
 while true; do
-    # Pull latest changes from git
-    echo "Checking for updates..."
-    
     # Get current commit hash before pulling
     OLD_COMMIT=$(git rev-parse HEAD)
     
@@ -30,8 +27,6 @@ while true; do
         ./golf-card-game &
         
         echo "Deployment complete at $(date)"
-    else
-        echo "Already up to date. No rebuild needed."
     fi
     
     # Wait before checking again (e.g., every 30 seconds)
