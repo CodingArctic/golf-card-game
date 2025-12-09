@@ -140,21 +140,13 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 		return fmt.Errorf("failed to get game players: %w", err)
 	}
 
-	// Filter out players who have declined or left (left_at is set)
-	activePlayers := make([]*database.GamePlayer, 0)
-	for _, player := range players {
-		if player.LeftAt == nil {
-			activePlayers = append(activePlayers, player)
-		}
-	}
-
-	// Check if game is full (only count active/pending players)
-	if len(activePlayers) >= game.MaxPlayers {
+	// Check if game is full
+	if len(players) >= game.MaxPlayers {
 		return ErrGameFull
 	}
 
-	// Check if user is already in the game (active or invited, but not declined)
-	for _, player := range activePlayers {
+	// Check if user is already in the game (active or invited)
+	for _, player := range players {
 		if player.UserID == invitedUserID {
 			if player.IsActive {
 				return ErrAlreadyInGame
@@ -165,7 +157,7 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 
 	// Validate inviter is in the game and active
 	inviterInGame := false
-	for _, player := range activePlayers {
+	for _, player := range players {
 		if player.UserID == inviterUserID && player.IsActive {
 			inviterInGame = true
 			break
@@ -177,8 +169,8 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 	}
 
 	// Add player with is_active=false, joined_at=NULL (pending invitation)
-	// Order index is based on current active/pending player count
-	orderIndex := len(activePlayers)
+	// Order index is based on current player count
+	orderIndex := len(players)
 	err = s.gameRepo.AddPlayer(ctx, gameID, invitedUserID, orderIndex)
 	if err != nil {
 		return fmt.Errorf("failed to invite player: %w", err)
@@ -273,9 +265,8 @@ func (s *GameService) DeclineInvitation(ctx context.Context, gameID int, userID 
 		return errors.New("cannot decline - already accepted")
 	}
 
-	// Mark as left (alternative: could delete the record entirely)
-	now := time.Now()
-	err = s.gameRepo.UpdatePlayerStatus(ctx, gameID, userID, false, &now)
+	// Delete the player record entirely since they declined
+	err = s.gameRepo.DeletePlayer(ctx, gameID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to decline invitation: %w", err)
 	}

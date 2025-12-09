@@ -37,6 +37,7 @@ type GameRepository interface {
 	GetGameByID(ctx context.Context, gameID int) (*Game, error)
 	GetGameByPublicID(ctx context.Context, publicID string) (*Game, error)
 	AddPlayer(ctx context.Context, gameID int, userID string, orderIndex int) error
+	DeletePlayer(ctx context.Context, gameID int, userID string) error
 	UpdatePlayerStatus(ctx context.Context, gameID int, userID string, isActive bool, joinedAt *time.Time) error
 	UpdatePlayerScore(ctx context.Context, gameID int, userID string, score int) error
 	GetGamePlayers(ctx context.Context, gameID int) ([]*GamePlayer, error)
@@ -351,6 +352,14 @@ func (r *postgresGameRepo) UpdatePlayerStatus(ctx context.Context, gameID int, u
 		 SET is_active = $3, joined_at = $4
 		 WHERE game_id = $1 AND user_id = $2`,
 		gameID, userID, isActive, joinedAt)
+	return err
+}
+
+func (r *postgresGameRepo) DeletePlayer(ctx context.Context, gameID int, userID string) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM game_players 
+		 WHERE game_id = $1 AND user_id = $2`,
+		gameID, userID)
 	return err
 }
 
