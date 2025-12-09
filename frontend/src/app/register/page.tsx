@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Script from 'next/script';
 import { registerUser, getRegistrationNonce } from '@/utils/api';
 import '../globals.css';
 import { IoIosArrowBack } from 'react-icons/io';
@@ -16,6 +17,7 @@ export default function RegisterPage() {
     confirmPassword: ''
   });
   const [nonce, setNonce] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [errors, setErrors] = useState({
     username: '',
     email: '',
@@ -88,11 +90,23 @@ export default function RegisterPage() {
     fetchNonce();
   }, []);
 
+  useEffect(() => {
+    // Make callback available globally for Turnstile
+    (window as any).handleTurnstileSuccess = (token: string) => {
+      setTurnstileToken(token);
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
       if (!nonce) {
         setApiError('Registration token not available. Please refresh the page.');
+        return;
+      }
+
+      if (!turnstileToken) {
+        setApiError('Please complete the captcha verification.');
         return;
       }
 
@@ -103,7 +117,8 @@ export default function RegisterPage() {
         username: formData.username,
         email: formData.email,
         password: formData.password,
-        nonce: nonce
+        nonce: nonce,
+        turnstileToken: turnstileToken
       });
 
       if (response.error) {
@@ -250,6 +265,22 @@ export default function RegisterPage() {
               {apiError}
             </div>
           )}
+
+          {/* Cloudflare Turnstile */}
+          <div className="flex justify-center">
+            <div 
+              id="turnstile-widget"
+              className="cf-turnstile" 
+              data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+              data-callback="handleTurnstileSuccess"
+              data-theme="auto"
+            ></div>
+          </div>
+
+          <Script 
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js" 
+            strategy="lazyOnload"
+          />
 
           <div>
             <button
