@@ -7,3 +7,11 @@ A project built to recreate the card game [Golf](https://www.wikihow.com/Play-Go
 3. Build the database: Run the script found in `./ddl/createTables.sql`
 4. Build the frontend: `cd frontend`, then `npm run build`
 5. Run the Go project: `go run .`
+
+
+## Task List
+- [x] Cloudflare Turnstile
+- [x] Registration Welcome Email
+- [ ] Built-in Game Tutorial
+- [ ] Password Reset
+- [ ] Frontend Mobile Compatibility
