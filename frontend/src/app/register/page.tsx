@@ -153,6 +153,14 @@ export default function RegisterPage() {
           (window as any).turnstile.reset(turnstileWidgetId);
         }
         setTurnstileToken(null);
+        
+        // Fetch a new nonce for the next attempt
+        const nonceResponse = await getRegistrationNonce();
+        if (nonceResponse.data?.nonce) {
+          setNonce(nonceResponse.data.nonce);
+        } else {
+          setApiError('Failed to refresh registration token. Please refresh the page.');
+        }
       } else {
         // Registration successful, redirect to login
         router.push('/login?registered=true');
