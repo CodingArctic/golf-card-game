@@ -1,6 +1,38 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // Check if user is logged in by checking for session cookie
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/game/list', {
+          credentials: 'include',
+        });
+        setIsLoggedIn(response.ok);
+      } catch {
+        setIsLoggedIn(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
   return (
     <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+      {isLoggedIn && (
+        <div className="absolute top-4 right-4">
+          <Link
+            href="/dash"
+            className="rounded-full border border-solid border-blue-600 dark:border-blue-400 transition-colors flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 font-medium text-sm h-10 px-5"
+          >
+            Go to Dashboard →
+          </Link>
+        </div>
+      )}
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
         <h1 className="text-4xl">Welcome to Golf Card Game Online!</h1>
         <div className="flex gap-4 w-full items-center justify-center flex-col  sm:flex-row">
