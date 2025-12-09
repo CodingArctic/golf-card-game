@@ -40,10 +40,12 @@ func main() {
 	userService := business.NewUserService(userRepo)
 	gameService := business.NewGameService(gameRepo, userRepo)
 	nonceManager := business.NewNonceManager()
+	emailService := service.NewEmailService()
 
 	// Set the services for HTTP handlers
 	service.SetUserService(userService)
 	service.SetNonceManager(nonceManager)
+	service.SetEmailService(emailService)
 	service.SetChatRepository(chatRepo)
 	service.SetGameRepository(gameRepo)
 	service.SetGameService(gameService)
