@@ -39,7 +39,7 @@ func (s *EmailService) SendWelcomeEmail(toEmail, username string) error {
 
 	ctx := context.Background()
 	params := &resend.SendEmailRequest{
-		From:    fromEmail,
+		From:    "Golf Card Game <" + fromEmail + ">",
 		To:      []string{toEmail},
 		Subject: "Welcome to Golf Card Game!",
 		Html: fmt.Sprintf(`
