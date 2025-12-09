@@ -92,17 +92,14 @@ export default function RegisterPage() {
   }, []);
 
   useEffect(() => {
-    // Make callback available globally for Turnstile
-    (window as any).handleTurnstileSuccess = (token: string) => {
-      setTurnstileToken(token);
-    };
-
     // Render Turnstile widget after script loads
     const renderWidget = () => {
       if (typeof (window as any).turnstile !== 'undefined' && !turnstileWidgetId) {
         const widgetId = (window as any).turnstile.render('#turnstile-widget', {
           sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA',
-          callback: 'handleTurnstileSuccess',
+          callback: (token: string) => {
+            setTurnstileToken(token);
+          },
           theme: 'auto',
         });
         setTurnstileWidgetId(widgetId);
