@@ -13,6 +13,7 @@ export interface RegisterCredentials {
   email: string;
   password: string;
   nonce?: string;
+  turnstileToken?: string;
 }
 
 // Simple response structure for custom token authentication
