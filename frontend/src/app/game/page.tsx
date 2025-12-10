@@ -310,40 +310,6 @@ function GameRoomContent() {
 					</div>
 				)}
 
-				{/* Drawn card prompt - Mobile only, at top */}
-				{gameState.drawnCard && isYourTurn && (
-					<div className="md:hidden bg-white/10 rounded-lg p-3 border-2 border-yellow-400 mb-4">
-						<div className="flex items-center gap-3">
-							<div className="scale-75 origin-left">
-								<Card
-									suit={gameState.drawnCard.suit}
-									value={gameState.drawnCard.value}
-								/>
-							</div>
-							<div className="flex-1">
-								{discardMode ? (
-									<p className="text-yellow-300 text-sm font-semibold">
-										Click one of your face-down cards to flip it
-									</p>
-								) : (
-									<>
-										<p className="text-white text-sm mb-2">
-											Click a card to swap
-										</p>
-										<button
-											type="button"
-											onClick={handleEnterDiscardMode}
-											className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-										>
-											Discard & Flip
-										</button>
-									</>
-								)}
-							</div>
-						</div>
-					</div>
-				)}
-
 				{/* Main game area - responsive layout */}
 				{!isWaiting && (
 					<div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-8 items-center justify-center">
@@ -370,7 +336,41 @@ function GameRoomContent() {
 						</div>
 
 						{/* Center - Deck, Discard, and Drawn Card */}
-						<div className="flex flex-col gap-4 md:gap-8 items-center">
+						<div className="flex flex-col gap-4 md:gap-8 items-center relative">
+							{/* Mobile Drawn Card Overlay */}
+							{gameState.drawnCard && isYourTurn && (
+								<div className="md:hidden absolute -top-2 left-1/2 -translate-x-1/2 z-10 bg-gray-900/95 rounded-lg p-3 border-2 border-yellow-400 shadow-lg min-w-[280px]">
+									<div className="flex items-center gap-3">
+										<div className="scale-75 origin-left">
+											<Card
+												suit={gameState.drawnCard.suit}
+												value={gameState.drawnCard.value}
+											/>
+										</div>
+										<div className="flex-1">
+											{discardMode ? (
+												<p className="text-yellow-300 text-sm font-semibold">
+													Click a face-down card to flip
+												</p>
+											) : (
+												<>
+													<p className="text-white text-sm mb-2">
+														Click a card to swap
+													</p>
+													<button
+														type="button"
+														onClick={handleEnterDiscardMode}
+														className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm w-full"
+													>
+														Discard & Flip
+													</button>
+												</>
+											)}
+										</div>
+									</div>
+								</div>
+							)}
+							
 							{/* Deck and Discard */}
 							<div className="flex gap-6">
 								<div className="text-center">
