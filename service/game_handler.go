@@ -169,14 +169,55 @@ func (r *GameRoom) Run() {
 			r.clients[reg.conn] = reg.userID
 			r.mu.Unlock()
 
-			// Send game state to the new client
-			r.sendGameState(reg.conn, reg.userID)
-
 			// Send chat history for this game
 			r.sendChatHistory(reg.conn)
 
 			// Notify other players someone joined
 			r.broadcastPlayerJoined(reg.userID)
+
+			// Broadcast game state to ALL players (including the one who just joined)
+			// This ensures everyone gets updated when the second player joins
+			ctx := context.Background()
+
+			// Load or initialize game state
+			var state *business.FullGameState
+			stateJSON, _, err := gameRepo.LoadGameState(ctx, r.gameID)
+
+			if err != nil {
+				// No state exists yet - check if we should initialize
+				game, err := gameRepo.GetGameByID(ctx, r.gameID)
+				if err == nil && game.Status == "in_progress" {
+					// Game just started, initialize the state
+					players, err := gameRepo.GetGamePlayers(ctx, r.gameID)
+					if err == nil {
+						activePlayers := []string{}
+						for _, p := range players {
+							if p.IsActive {
+								activePlayers = append(activePlayers, p.UserID)
+							}
+						}
+
+						if len(activePlayers) == 2 {
+							newState, err := gameService.InitializeGame(ctx, r.gameID, activePlayers)
+							if err == nil {
+								// Save the initial state
+								stateJSON, _ := json.Marshal(newState)
+								if err := gameRepo.SaveGameState(ctx, r.gameID, stateJSON); err == nil {
+									state = newState
+								}
+							}
+						}
+					}
+				}
+			} else {
+				// Parse existing state
+				var parsedState business.FullGameState
+				if err := json.Unmarshal(stateJSON, &parsedState); err == nil {
+					state = &parsedState
+				}
+			}
+
+			broadcastGameState(r, r.gameID, state)
 
 		case conn := <-r.unregister:
 			r.mu.Lock()
@@ -681,15 +722,19 @@ func broadcastGameEnd(room *GameRoom, gameID int, state *business.FullGameState,
 
 // buildGameStatePayload creates a personalized state payload for a specific user
 func buildGameStatePayload(game *database.Game, state *business.FullGameState, dbPlayers []*database.GamePlayer, viewerUserID string) GameStatePayload {
-	// Build player info list
-	playerInfos := make([]PlayerInfo, len(dbPlayers))
-	for i, p := range dbPlayers {
-		playerInfos[i] = PlayerInfo{
-			UserID:   p.UserID,
-			Username: p.Username,
-			Score:    p.Score,
-			IsActive: p.IsActive,
-			IsYou:    p.UserID == viewerUserID,
+	// Build player info list - only include active players for frontend
+	// (DB still tracks invited players with is_active=false)
+	playerInfos := make([]PlayerInfo, 0, len(dbPlayers))
+	for _, p := range dbPlayers {
+		// Only include active players in the frontend state
+		if p.IsActive {
+			playerInfos = append(playerInfos, PlayerInfo{
+				UserID:   p.UserID,
+				Username: p.Username,
+				Score:    p.Score,
+				IsActive: p.IsActive,
+				IsYou:    p.UserID == viewerUserID,
+			})
 		}
 	}
 
