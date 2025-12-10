@@ -270,8 +270,8 @@ function GameRoomContent() {
 					<p className="text-green-200">
 						Game #{gameState.gameId} • Status: {titleCase(gameState.status)} • Phase: {titleCase(gameState.phase)}
 					</p>
-					{/* Show turn indicator only after initial_flip phase */}
-					{(gameState.phase == "initial_flip") ? (
+					{/* Show turn indicator only after waiting & initial_flip phases */}
+					{(gameState.phase == "initial_flip" || gameState.phase == "waiting") ? (
 						<></>
 					) : (isYourTurn) ? (
 						<p className="text-yellow-300 font-semibold mt-2">
