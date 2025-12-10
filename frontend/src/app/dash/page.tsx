@@ -45,7 +45,7 @@ export default function DashPage() {
     useEffect(() => {
         // Use a small delay to ensure DOM is fully rendered
         const timeoutId = setTimeout(() => {
-            scrollToBottom('auto');
+            scrollToBottom();
         }, 0);
         return () => clearTimeout(timeoutId);
     }, [messages, isChatOpen, onlinePlayers]);
