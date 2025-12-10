@@ -48,7 +48,7 @@ export default function DashPage() {
             scrollToBottom('auto');
         }, 0);
         return () => clearTimeout(timeoutId);
-    }, [messages, isChatOpen]);
+    }, [messages, isChatOpen, onlinePlayers]);
 
     useEffect(() => {
         connectWebSocket();
