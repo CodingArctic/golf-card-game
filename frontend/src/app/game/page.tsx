@@ -314,7 +314,7 @@ function GameRoomContent() {
 				{!isWaiting && (
 					<div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-8 items-center justify-center">
 						{/* Opponent cards */}
-						<div className="scale-75 sm:scale-90 md:scale-100 origin-center">
+						<div className="w-full md:w-auto px-4 md:px-0">
 							<div className="text-white mb-2 md:mb-4">
 								<h2 className="text-base sm:text-lg md:text-xl font-semibold">
 									{opponent?.username || "Waiting for opponent..."}
@@ -323,13 +323,14 @@ function GameRoomContent() {
 									<p className="text-sm md:text-base text-green-200">Score: {opponent.score}</p>
 								)}
 							</div>
-							<div className="grid grid-cols-3 gap-2 md:gap-4 max-w-[340px]">
+							<div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 max-w-[400px] sm:max-w-[450px] md:max-w-[550px] mx-auto">
 								{gameState.opponentCards.map((card) => (
 									<Card
 										key={card.index}
 										suit={card.suit}
 										value={card.value}
 										onClick={() => handleCardClick(card.index, true)}
+										className="w-full max-w-[120px] md:max-w-[160px] mx-auto"
 									/>
 								))}
 							</div>
@@ -339,7 +340,7 @@ function GameRoomContent() {
 						<div className="flex flex-col gap-4 md:gap-8 items-center relative">
 							{/* Mobile Drawn Card Overlay */}
 							{gameState.drawnCard && isYourTurn && (
-								<div className="md:hidden absolute -top-2 left-1/2 -translate-x-1/2 z-10 bg-gray-900/95 rounded-lg p-3 border-2 border-yellow-400 shadow-lg min-w-[280px]">
+								<div className="md:hidden absolute -top-2 left-1/2 -translate-x-1/2 z-10 bg-gray-900/95 rounded-lg p-4 border-2 border-yellow-400 shadow-lg min-w-[320px]">
 									<div className="flex items-center gap-3">
 										<div className="scale-75 origin-left">
 											<Card
@@ -404,9 +405,9 @@ function GameRoomContent() {
 								</div>
 							</div>
 
-							{/* Drawn card and action controls - Desktop only */}
+							{/* Desktop Drawn Card Overlay */}
 							{gameState.drawnCard && isYourTurn && (
-								<div className="hidden md:block bg-white/10 rounded-lg p-4 border-2 border-yellow-400 max-w-[220px]">
+								<div className="hidden md:block absolute top-0 left-1/2 -translate-x-1/2 z-10 bg-gray-900/95 rounded-lg p-5 border-2 border-yellow-400 shadow-lg min-w-[280px]">
 									<p className="text-white font-semibold mb-3 text-center">Drawn Card</p>
 									<div className="flex flex-col items-center gap-3">
 										<Card
@@ -415,18 +416,18 @@ function GameRoomContent() {
 										/>
 										<div className="flex flex-col gap-2 w-full">
 											{discardMode ? (
-												<p className="text-yellow-300 text-xs text-center font-semibold">
-													Click one of your face-down cards to flip it
+												<p className="text-yellow-300 text-sm text-center font-semibold">
+													Click a face-down card to flip
 												</p>
 											) : (
 												<>
-													<p className="text-white text-xs text-center">
+													<p className="text-white text-sm text-center">
 														Click a card to swap
 													</p>
 													<button
 														type="button"
 														onClick={handleEnterDiscardMode}
-														className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
+														className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm w-full"
 													>
 														Discard & Flip
 													</button>
@@ -439,7 +440,7 @@ function GameRoomContent() {
 						</div>
 
 						{/* Your cards */}
-						<div className="scale-75 sm:scale-90 md:scale-100 origin-center">
+						<div className="w-full md:w-auto px-4 md:px-0">
 							<div className="text-white mb-2 md:mb-4">
 								<h2 className="text-base sm:text-lg md:text-xl font-semibold">
 									{`${you?.username} (You)`}
@@ -450,13 +451,14 @@ function GameRoomContent() {
 							</div>
 
 							{/* Your cards */}
-							<div className="grid grid-cols-3 gap-2 md:gap-4 max-w-[340px]">
+							<div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 max-w-[400px] sm:max-w-[450px] md:max-w-[550px] mx-auto">
 								{gameState.yourCards.map((card) => (
 									<Card
 										key={card.index}
 										suit={card.suit}
 										value={card.value}
 										onClick={() => handleCardClick(card.index, false)}
+										className="w-full max-w-[120px] md:max-w-[160px] mx-auto"
 									/>
 								))}
 							</div>
