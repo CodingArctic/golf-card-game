@@ -310,6 +310,40 @@ function GameRoomContent() {
 					</div>
 				)}
 
+				{/* Drawn card prompt - Mobile only, at top */}
+				{gameState.drawnCard && isYourTurn && (
+					<div className="md:hidden bg-white/10 rounded-lg p-3 border-2 border-yellow-400 mb-4">
+						<div className="flex items-center gap-3">
+							<div className="scale-75 origin-left">
+								<Card
+									suit={gameState.drawnCard.suit}
+									value={gameState.drawnCard.value}
+								/>
+							</div>
+							<div className="flex-1">
+								{discardMode ? (
+									<p className="text-yellow-300 text-sm font-semibold">
+										Click one of your face-down cards to flip it
+									</p>
+								) : (
+									<>
+										<p className="text-white text-sm mb-2">
+											Click a card to swap
+										</p>
+										<button
+											type="button"
+											onClick={handleEnterDiscardMode}
+											className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+										>
+											Discard & Flip
+										</button>
+									</>
+								)}
+							</div>
+						</div>
+					</div>
+				)}
+
 				{/* Main game area - responsive layout */}
 				{!isWaiting && (
 					<div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-8 items-center justify-center">
@@ -370,9 +404,9 @@ function GameRoomContent() {
 								</div>
 							</div>
 
-							{/* Drawn card and action controls */}
+							{/* Drawn card and action controls - Desktop only */}
 							{gameState.drawnCard && isYourTurn && (
-								<div className="bg-white/10 rounded-lg p-4 border-2 border-yellow-400 max-w-[220px]">
+								<div className="hidden md:block bg-white/10 rounded-lg p-4 border-2 border-yellow-400 max-w-[220px]">
 									<p className="text-white font-semibold mb-3 text-center">Drawn Card</p>
 									<div className="flex flex-col items-center gap-3">
 										<Card
