@@ -24,11 +24,19 @@ const (
 )
 
 // upgrader converts an incoming HTTP request to a WebSocket connection.
-// CheckOrigin returns true to allow all origins during local development.
-// In production, tighten this to validate r.Origin against allowed hosts.
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins for local development
+		origin := r.Header.Get("Origin")
+		allowedOrigins := []string{
+			"http://localhost:8080",
+			"https://golf.webdev.gccis.rit.edu",
+		}
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				return true
+			}
+		}
+		return false
 	},
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
