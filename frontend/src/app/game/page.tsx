@@ -62,6 +62,7 @@ function GameRoomContent() {
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [discardMode, setDiscardMode] = useState(false);
 	const [gameEndData, setGameEndData] = useState<GameEndData | null>(null);
+	const [isChatOpen, setIsChatOpen] = useState(false);
 
 	const wsRef = useRef<WebSocket | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -242,17 +243,30 @@ function GameRoomContent() {
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-green-800 to-green-900 flex">
 			{/* Main game area */}
-			<div className="flex-1 flex flex-col p-8">
+			<div className="flex-1 flex flex-col p-4 md:p-8">
 				{/* Header */}
 				<div className="mb-6">
-					<button
-						type="button"
-						onClick={() => router.push("/dash")}
-						className="text-white hover:text-green-200 mb-4"
-					>
-						← Back to Dashboard
-					</button>
-					<h1 className="text-3xl font-bold text-white">Golf Card Game</h1>
+					<div className="flex items-center justify-between mb-4">
+						<button
+							type="button"
+							onClick={() => router.push("/dash")}
+							className="text-white hover:text-green-200"
+						>
+							← Back to Dashboard
+						</button>
+						{/* Mobile Chat Toggle */}
+						<button
+							type="button"
+							onClick={() => setIsChatOpen(!isChatOpen)}
+							className="md:hidden px-3 py-2 bg-white/10 text-white rounded hover:bg-white/20 transition-colors"
+							title="Toggle chat"
+						>
+							<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+							</svg>
+						</button>
+					</div>
+					<h1 className="text-2xl md:text-3xl font-bold text-white">Golf Card Game</h1>
 					<p className="text-green-200">
 						Game #{gameState.gameId} • Status: {titleCase(gameState.status)} • Phase: {titleCase(gameState.phase)}
 					</p>
@@ -291,20 +305,20 @@ function GameRoomContent() {
 					</div>
 				)}
 
-				{/* Main game area - horizontal layout */}
+				{/* Main game area - responsive layout */}
 				{!isWaiting && (
-					<div className="flex-1 flex gap-8 items-center justify-center">
-						{/* Left side - Opponent cards */}
-						<div>
-							<div className="text-white mb-4">
-								<h2 className="text-xl font-semibold">
+					<div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-8 items-center justify-center">
+						{/* Opponent cards */}
+						<div className="scale-75 sm:scale-90 md:scale-100 origin-center">
+							<div className="text-white mb-2 md:mb-4">
+								<h2 className="text-base sm:text-lg md:text-xl font-semibold">
 									{opponent?.username || "Waiting for opponent..."}
 								</h2>
 								{opponent?.score !== null && opponent?.score !== undefined && (
-									<p className="text-green-200">Score: {opponent.score}</p>
+									<p className="text-sm md:text-base text-green-200">Score: {opponent.score}</p>
 								)}
 							</div>
-							<div className="grid grid-cols-3 gap-4 max-w-[340px]">
+							<div className="grid grid-cols-3 gap-2 md:gap-4 max-w-[340px]">
 								{gameState.opponentCards.map((card) => (
 									<Card
 										key={card.index}
@@ -317,7 +331,7 @@ function GameRoomContent() {
 						</div>
 
 						{/* Center - Deck, Discard, and Drawn Card */}
-						<div className="flex flex-col gap-8 items-center">
+						<div className="flex flex-col gap-4 md:gap-8 items-center">
 							{/* Deck and Discard */}
 							<div className="flex gap-6">
 								<div className="text-center">
@@ -385,19 +399,19 @@ function GameRoomContent() {
 							)}
 						</div>
 
-						{/* Right side - Your cards */}
-						<div>
-							<div className="text-white mb-4">
-								<h2 className="text-xl font-semibold">
+						{/* Your cards */}
+						<div className="scale-75 sm:scale-90 md:scale-100 origin-center">
+							<div className="text-white mb-2 md:mb-4">
+								<h2 className="text-base sm:text-lg md:text-xl font-semibold">
 									{`${you?.username} (You)`}
 								</h2>
 								{you?.score !== null && you?.score !== undefined && (
-									<p className="text-green-200">Score: {you.score}</p>
+									<p className="text-sm md:text-base text-green-200">Score: {you.score}</p>
 								)}
 							</div>
 
 							{/* Your cards */}
-							<div className="grid grid-cols-3 gap-4 max-w-[340px]">
+							<div className="grid grid-cols-3 gap-2 md:gap-4 max-w-[340px]">
 								{gameState.yourCards.map((card) => (
 									<Card
 										key={card.index}
@@ -459,13 +473,26 @@ function GameRoomContent() {
 				</div>
 			)}
 
-			{/* Chat sidebar */}
-			<div className="w-80 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col">
-				<div className="p-4 border-b border-gray-200 dark:border-gray-800">
-					<h2 className="text-xl font-semibold text-gray-900 dark:text-white">Game Chat</h2>
-					<p className="text-sm text-gray-500 dark:text-gray-400">
-						{wsConnected ? "Connected" : "Disconnected"}
-					</p>
+			{/* Chat sidebar - Hidden on mobile unless toggled, always visible on md+ */}
+			<div className={`${isChatOpen ? 'fixed inset-0 z-50' : 'hidden'} md:block md:relative md:w-80 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col`}>
+				<div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+					<div>
+						<h2 className="text-xl font-semibold text-gray-900 dark:text-white">Game Chat</h2>
+						<p className="text-sm text-gray-500 dark:text-gray-400">
+							{wsConnected ? "Connected" : "Disconnected"}
+						</p>
+					</div>
+					{/* Mobile Close Button */}
+					<button
+						type="button"
+						onClick={() => setIsChatOpen(false)}
+						className="md:hidden p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+						title="Close chat"
+					>
+						<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
 				</div>
 
 				{/* Messages */}

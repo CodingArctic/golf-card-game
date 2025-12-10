@@ -1,3 +1,4 @@
+// Icons from Heroicons (https://heroicons.com) - MIT License
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
@@ -32,6 +33,7 @@ export default function DashPage() {
     const [onlinePlayers, setOnlinePlayers] = useState<string[]>([]);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [isChatOpen, setIsChatOpen] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const shouldReconnectRef = useRef(true);
@@ -229,13 +231,23 @@ export default function DashPage() {
 
     return (
         <div className='flex h-screen bg-gray-50 dark:bg-gray-900'>
-            <main className='flex-1 p-6 overflow-y-auto'>
+            <main className='flex-1 p-4 md:p-6 overflow-y-auto'>
                 <div className="flex items-center justify-between mb-6">
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-                    <div className="flex gap-2">
+                    <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+                    <div className="flex gap-1.5 md:gap-2">
+                        {/* Mobile Chat Toggle */}
+                        <button
+                            onClick={() => setIsChatOpen(!isChatOpen)}
+                            className="md:hidden p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                            title="Toggle chat"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </button>
                         <button
                             onClick={loadGames}
-                            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                            className="p-2 md:px-4 md:py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                             title="Refresh games and invitations"
                         >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,10 +256,13 @@ export default function DashPage() {
                         </button>
                         <button
                             onClick={handleLogout}
-                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                            className="px-3 py-2 md:px-4 md:py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm md:text-base"
                             title="Log out"
                         >
-                            Log Out
+                            <span className="hidden sm:inline">Log Out</span>
+                            <svg className="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -277,16 +292,16 @@ export default function DashPage() {
 
                 {/* Invite Player Section */}
                 {activeGames.length > 0 && (
-                    <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
                         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Invite Player</h2>
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3">
                             <select
                                 value={selectedGameForInvite ?? ''}
                                 onChange={(e) => {
                                     const value = e.target.value;
                                     setSelectedGameForInvite(value === '' ? null : Number(value));
                                 }}
-                                className="px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full sm:w-auto px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">Select a game...</option>
                                 {activeGames.map((game) => (
@@ -310,7 +325,7 @@ export default function DashPage() {
                             />
                             <button
                                 onClick={handleInvite}
-                                className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                                className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors whitespace-nowrap"
                             >
                                 Send Invite
                             </button>
@@ -391,7 +406,24 @@ export default function DashPage() {
                 )}
             </main>
 
-            <aside className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
+            {/* Chat Sidebar - Hidden on mobile unless toggled, always visible on md+ */}
+            <aside className={`${isChatOpen ? 'fixed inset-0 z-50' : 'hidden'} md:block md:relative md:w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col`}>
+                {/* Mobile Header with Close Button - Only shown on mobile */}
+                {isChatOpen && (
+                    <div className="md:hidden p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Chat & Players</h2>
+                        <button
+                            onClick={() => setIsChatOpen(false)}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                            title="Close chat"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
+
                 {/* Online Players */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
