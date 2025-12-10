@@ -35,7 +35,11 @@ func SessionMiddleware(next http.Handler) http.Handler {
 
 		cookie, err := r.Cookie("session")
 		if err != nil || cookie.Value == "" {
-			// Redirect to login for unauthenticated requests to protected pages
+			// Return 401 for API requests, redirect for page requests
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -43,7 +47,11 @@ func SessionMiddleware(next http.Handler) http.Handler {
 		// Validate the session token
 		userID, err := userService.ValidateSession(r.Context(), cookie.Value)
 		if err != nil {
-			// Redirect to login for invalid/expired sessions
+			// Return 401 for API requests, redirect for page requests
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
