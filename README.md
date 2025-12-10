@@ -12,6 +12,6 @@ A project built to recreate the card game [Golf](https://www.wikihow.com/Play-Go
 ## Task List
 - [x] Cloudflare Turnstile
 - [x] Registration Welcome Email
+- [X] Frontend Mobile Compatibility
 - [ ] Built-in Game Tutorial
 - [ ] Password Reset
-- [ ] Frontend Mobile Compatibility
