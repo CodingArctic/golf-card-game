@@ -11,16 +11,32 @@ import (
 func NotFoundHandler(root http.FileSystem) http.Handler {
 	fs := http.FileServer(root)
 
+	// Get the absolute base path once during initialization
+	basePath, err := filepath.Abs("./frontend/out")
+	if err != nil {
+		// If we can't get the base path, use a safer default
+		basePath = "./frontend/out"
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Clean the path
+		// Clean the path to prevent directory traversal
 		path := filepath.Clean(r.URL.Path)
 
-		// Try to open the file
-		fullPath := filepath.Join("./frontend/out", path)
+		// Remove leading slash and join with base path
+		relativePath := strings.TrimPrefix(path, "/")
+		fullPath := filepath.Join(basePath, relativePath)
+
+		// Security check: ensure the resolved path is within the base directory
+		absPath, err := filepath.Abs(fullPath)
+		if err != nil || !strings.HasPrefix(absPath, basePath) {
+			// Path traversal attempt detected
+			serve404(w)
+			return
+		}
 
 		// Check if it's a directory, if so try index.html
-		if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
-			indexPath := filepath.Join(fullPath, "index.html")
+		if info, err := os.Stat(absPath); err == nil && info.IsDir() {
+			indexPath := filepath.Join(absPath, "index.html")
 			if _, err := os.Stat(indexPath); err != nil {
 				// No index.html in directory, serve 404
 				serve404(w)
