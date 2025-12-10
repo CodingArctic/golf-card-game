@@ -48,7 +48,7 @@ export default function DashPage() {
             scrollToBottom('auto');
         }, 0);
         return () => clearTimeout(timeoutId);
-    }, [messages]);
+    }, [messages, isChatOpen]);
 
     useEffect(() => {
         connectWebSocket();
@@ -407,7 +407,7 @@ export default function DashPage() {
             </main>
 
             {/* Chat Sidebar - Hidden on mobile unless toggled, always visible on md+ */}
-            <aside className={`${isChatOpen ? 'fixed inset-0 z-50' : 'hidden'} md:block md:relative md:w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col`}>
+            <aside className={`${isChatOpen ? 'fixed inset-0 z-50 h-screen' : 'hidden'} md:flex md:flex-col md:w-80 md:max-h-screen bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col`}>
                 {/* Mobile Header with Close Button - Only shown on mobile */}
                 {isChatOpen && (
                     <div className="md:hidden p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
