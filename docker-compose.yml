@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -69,10 +67,6 @@ services:
       
       # Include stopped containers
       WATCHTOWER_INCLUDE_STOPPED: "true"
-      
-      # GitHub Container Registry authentication
-      REPO_USER: ${GITHUB_USERNAME}
-      REPO_PASS: ${GITHUB_TOKEN}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
