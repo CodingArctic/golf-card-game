@@ -30,6 +30,7 @@ var upgrader = websocket.Upgrader{
 		allowedOrigins := []string{
 			"http://localhost:8080",
 			"https://golf.webdev.gccis.rit.edu",
+			"https://golf.clyde.biz",
 		}
 		for _, allowed := range allowedOrigins {
 			if origin == allowed {
