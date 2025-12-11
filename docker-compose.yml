@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: golf-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: golf
+      POSTGRES_USER: golfer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./ddl/createTables.sql:/docker-entrypoint-initdb.d/createTables.sql:ro
+    networks:
+      - golf-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U golfer -d golf"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Golf Card Game Application
+  golf-app:
+    image: ghcr.io/codingarctic/golf-card-game:latest
+    container_name: golf-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database connection
+      CONNECTION_STRING: postgres://golfer:${POSTGRES_PASSWORD}@postgres:5432/golf?sslmode=disable
+      
+      # Server configuration
+      HOST_ADDRESS: :8080
+      
+      # Application URL (for emails, etc.)
+      APP_URL: ${APP_URL}
+      
+      # Cloudflare Turnstile (CAPTCHA)
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
+      
+      # Resend Email Service
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    networks:
+      - golf-network
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Watchtower - Automatic container updates
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: golf-watchtower
+    restart: unless-stopped
+    environment:
+      # Check for updates every 5 minutes (300 seconds)
+      WATCHTOWER_POLL_INTERVAL: 300
+      
+      # Only update containers with the watchtower label
+      WATCHTOWER_LABEL_ENABLE: "true"
+      
+      # Clean up old images after updating
+      WATCHTOWER_CLEANUP: "true"
+      
+      # Include stopped containers
+      WATCHTOWER_INCLUDE_STOPPED: "true"
+      
+      # GitHub Container Registry authentication
+      REPO_USER: ${GITHUB_USERNAME}
+      REPO_PASS: ${GITHUB_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - golf-network
+
+networks:
+  golf-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+
+# Build artifacts
+golf-card-game
+*.exe
+
+# Frontend
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/.env
+frontend/.env.local
+
+# Go
+*.sum
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deployment scripts
+deploy-watch.sh
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
