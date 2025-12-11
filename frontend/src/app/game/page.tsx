@@ -69,6 +69,7 @@ function GameRoomContent() {
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [discardMode, setDiscardMode] = useState(false);
 	const [gameEndData, setGameEndData] = useState<GameEndData | null>(null);
+	const [gameEndTime, setGameEndTime] = useState<Date | null>(null);
 	const [isChatOpen, setIsChatOpen] = useState(false);
 	const [rematchRequested, setRematchRequested] = useState(false);
 	const [rematchInvitations, setRematchInvitations] = useState<GameInvitation[]>([]);
@@ -82,15 +83,21 @@ function GameRoomContent() {
 	};
 
 	const checkForRematchInvitations = async () => {
-		if (!gameState) return;
+		if (!gameState || !gameEndTime) return;
 		
 		const response = await listGames();
 		if (response.data?.invitations) {
 			// Find invitations from players who were in this game
 			const playerUserIds = gameState.players.map((p) => p.userId);
-			const rematchInvites = response.data.invitations.filter((inv) =>
-				playerUserIds.includes(inv.invitedBy) && inv.invitedBy !== gameState.currentUserId
-			);
+			const rematchInvites = response.data.invitations.filter((inv) => {
+				// Check if invitation is from a player in the game
+				if (!playerUserIds.includes(inv.invitedBy) || inv.invitedBy === gameState.currentUserId) {
+					return false;
+				}
+				// Only include invitations created AFTER the game ended (likely rematch invites)
+				const invitationTime = new Date(inv.createdAt);
+				return invitationTime > gameEndTime;
+			});
 			setRematchInvitations(rematchInvites);
 		}
 	};
@@ -166,7 +173,8 @@ function GameRoomContent() {
 				);
 				if (freshRematchInvites.length > 0) {
 					// Another player created a game first, join theirs instead
-					// At this stage we would have created an 'orphan' game with no invites, but can be cleaned up later
+					// Note: We've created a game but haven't invited anyone yet, 
+					// so it will just be an empty waiting game
 					const invitation = freshRematchInvites[0];
 					const acceptResponse = await acceptInvitation(invitation.gameId);
 					if (acceptResponse.error) {
@@ -207,6 +215,7 @@ function GameRoomContent() {
 		setRematchInvitations([]);
 		setRematchLoading(false);
 		setGameEndData(null);
+		setGameEndTime(null);
 		setDiscardMode(false);
 		setGameState(null);
 		setMessages([]);
@@ -259,6 +268,7 @@ function GameRoomContent() {
 				case "game_end":
 					const endData = message.payload as GameEndData;
 					setGameEndData(endData);
+					setGameEndTime(new Date()); // Record when the game ended
 					break;
 				case "player_joined":
 					console.log("Player joined:", message.payload);
