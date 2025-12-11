@@ -37,10 +37,46 @@ export default function DashPage() {
     const chatEndRef = useRef<HTMLDivElement>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const shouldReconnectRef = useRef(true);
+    const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
         chatEndRef.current?.scrollIntoView({ behavior });
     };
+
+    // Auto-clear error messages after 5 seconds
+    useEffect(() => {
+        if (error) {
+            if (errorTimeoutRef.current) {
+                clearTimeout(errorTimeoutRef.current);
+            }
+            errorTimeoutRef.current = setTimeout(() => {
+                setError('');
+            }, 5000);
+        }
+        return () => {
+            if (errorTimeoutRef.current) {
+                clearTimeout(errorTimeoutRef.current);
+            }
+        };
+    }, [error]);
+
+    // Auto-clear success messages after 5 seconds
+    useEffect(() => {
+        if (success) {
+            if (successTimeoutRef.current) {
+                clearTimeout(successTimeoutRef.current);
+            }
+            successTimeoutRef.current = setTimeout(() => {
+                setSuccess('');
+            }, 5000);
+        }
+        return () => {
+            if (successTimeoutRef.current) {
+                clearTimeout(successTimeoutRef.current);
+            }
+        };
+    }, [success]);
 
     useEffect(() => {
         // Use a small delay to ensure DOM is fully rendered
