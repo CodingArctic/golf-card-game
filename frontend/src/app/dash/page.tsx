@@ -175,7 +175,7 @@ export default function DashPage() {
                 } else if (lobbyMessage.type === 'invitation_received') {
                     // Handle new invitation received
                     const payload = lobbyMessage.payload;
-                    setSuccess(`${payload.inviterUsername} invited you to join game ${payload.publicId}!`);
+                    setSuccess(`${payload.inviterUsername} invited you to join a game!`);
                     // Reload games to show the new invitation
                     loadGames();
                 } else if (lobbyMessage.type === 'invitation_accepted') {
