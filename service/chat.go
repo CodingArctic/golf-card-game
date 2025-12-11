@@ -51,13 +51,21 @@ type ChatMessage struct {
 
 // LobbyMessage wraps different message types for the lobby
 type LobbyMessage struct {
-	Type    string      `json:"type"` // "chat", "player_list"
+	Type    string      `json:"type"` // "chat", "player_list", "invitation_received", "invitation_accepted", "invitation_declined"
 	Payload interface{} `json:"payload"`
 }
 
 // PlayerListPayload contains the list of online players
 type PlayerListPayload struct {
 	Players []string `json:"players"`
+}
+
+// InvitationPayload contains invitation event data
+type InvitationPayload struct {
+	GameID          int    `json:"gameId"`
+	PublicID        string `json:"publicId"`
+	InviterUsername string `json:"inviterUsername,omitempty"`
+	InviteeUsername string `json:"inviteeUsername,omitempty"`
 }
 
 var chatRepo database.ChatRepository
@@ -149,6 +157,20 @@ func (h *ChatHub) Run() {
 				}
 			}
 			h.mu.RUnlock()
+		}
+	}
+}
+
+// SendNotificationToUser sends a notification to a specific user by their userID
+func (h *ChatHub) SendNotificationToUser(userID string, message LobbyMessage) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client, clientUserID := range h.clients {
+		if clientUserID == userID {
+			if err := client.WriteJSON(message); err != nil {
+				log.Printf("Error sending notification to user %s: %v", userID, err)
+			}
 		}
 	}
 }

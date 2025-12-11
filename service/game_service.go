@@ -104,6 +104,24 @@ func InvitePlayerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get game details for the notification
+	game, _, err := gameService.GetGameWithPlayers(ctx, req.GameID)
+	if err == nil {
+		// Get inviter username
+		inviter, err := userService.GetUserByID(ctx, userID)
+		if err == nil {
+			// Send WebSocket notification to the invited user
+			Hub.SendNotificationToUser(invitedUser.UserID, LobbyMessage{
+				Type: "invitation_received",
+				Payload: InvitationPayload{
+					GameID:          game.GameID,
+					PublicID:        game.PublicID,
+					InviterUsername: inviter.Username,
+				},
+			})
+		}
+	}
+
 	jsonResponse(w, http.StatusOK, map[string]string{"message": "Invitation sent"})
 }
 
@@ -153,6 +171,28 @@ func AcceptInvitationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get game details and notify all active players
+	game, players, err := gameService.GetGameWithPlayers(ctx, req.GameID)
+	if err == nil {
+		// Get acceptor username
+		acceptor, err := userService.GetUserByID(ctx, userID)
+		if err == nil {
+			// Notify all active players (except the acceptor)
+			for _, player := range players {
+				if player.UserID != userID && player.IsActive {
+					Hub.SendNotificationToUser(player.UserID, LobbyMessage{
+						Type: "invitation_accepted",
+						Payload: InvitationPayload{
+							GameID:          game.GameID,
+							PublicID:        game.PublicID,
+							InviteeUsername: acceptor.Username,
+						},
+					})
+				}
+			}
+		}
+	}
+
 	jsonResponse(w, http.StatusOK, map[string]string{"message": "Invitation accepted"})
 }
 
@@ -196,6 +236,28 @@ func DeclineInvitationHandler(w http.ResponseWriter, r *http.Request) {
 			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to decline invitation"})
 		}
 		return
+	}
+
+	// Get game details and notify all active players
+	game, players, err := gameService.GetGameWithPlayers(ctx, req.GameID)
+	if err == nil {
+		// Get decliner username
+		decliner, err := userService.GetUserByID(ctx, userID)
+		if err == nil {
+			// Notify all active players
+			for _, player := range players {
+				if player.IsActive {
+					Hub.SendNotificationToUser(player.UserID, LobbyMessage{
+						Type: "invitation_declined",
+						Payload: InvitationPayload{
+							GameID:          game.GameID,
+							PublicID:        game.PublicID,
+							InviteeUsername: decliner.Username,
+						},
+					})
+				}
+			}
+		}
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]string{"message": "Invitation declined"})

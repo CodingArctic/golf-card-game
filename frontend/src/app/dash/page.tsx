@@ -37,10 +37,46 @@ export default function DashPage() {
     const chatEndRef = useRef<HTMLDivElement>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const shouldReconnectRef = useRef(true);
+    const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
         chatEndRef.current?.scrollIntoView({ behavior });
     };
+
+    // Auto-clear error messages after 5 seconds
+    useEffect(() => {
+        if (error) {
+            if (errorTimeoutRef.current) {
+                clearTimeout(errorTimeoutRef.current);
+            }
+            errorTimeoutRef.current = setTimeout(() => {
+                setError('');
+            }, 5000);
+        }
+        return () => {
+            if (errorTimeoutRef.current) {
+                clearTimeout(errorTimeoutRef.current);
+            }
+        };
+    }, [error]);
+
+    // Auto-clear success messages after 5 seconds
+    useEffect(() => {
+        if (success) {
+            if (successTimeoutRef.current) {
+                clearTimeout(successTimeoutRef.current);
+            }
+            successTimeoutRef.current = setTimeout(() => {
+                setSuccess('');
+            }, 5000);
+        }
+        return () => {
+            if (successTimeoutRef.current) {
+                clearTimeout(successTimeoutRef.current);
+            }
+        };
+    }, [success]);
 
     useEffect(() => {
         // Use a small delay to ensure DOM is fully rendered
@@ -52,19 +88,13 @@ export default function DashPage() {
 
     useEffect(() => {
         connectWebSocket();
-        loadGames();
-        
-        // Poll for new invitations every 10 seconds
-        const pollInterval = setInterval(() => {
-            loadGames();
-        }, 10000);
+        loadGames(); // Initial load
         
         return () => {
             shouldReconnectRef.current = false;
             if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
                 wsRef.current.close(1000, "Navigating away");
             }
-            clearInterval(pollInterval);
         };
     }, []);
 
@@ -178,6 +208,25 @@ export default function DashPage() {
                     // Handle player list updates
                     const playerList = lobbyMessage.payload.players || [];
                     setOnlinePlayers(playerList);
+                } else if (lobbyMessage.type === 'invitation_received') {
+                    // Handle new invitation received
+                    const payload = lobbyMessage.payload;
+                    setSuccess(`${payload.inviterUsername} invited you to join a game!`);
+                    // Reload games to show the new invitation
+                    loadGames();
+                } else if (lobbyMessage.type === 'invitation_accepted') {
+                    // Handle invitation accepted by another player
+                    const payload = lobbyMessage.payload;
+                    setSuccess(`${payload.inviteeUsername} accepted your invitation!`);
+                    // Reload games and navigate to the game room
+                    loadGames();
+                    router.push(`/game?gameId=${payload.gameId}`);
+                } else if (lobbyMessage.type === 'invitation_declined') {
+                    // Handle invitation declined
+                    const payload = lobbyMessage.payload;
+                    setError(`${payload.inviteeUsername} declined your invitation.`);
+                    // Reload games to update the list
+                    loadGames();
                 }
             } catch (error) {
                 console.error('Failed to parse message:', error);
