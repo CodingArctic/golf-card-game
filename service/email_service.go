@@ -53,7 +53,7 @@ func (s *EmailService) SendWelcomeEmail(toEmail, username string) error {
 					<li>Chat with other players in the lobby</li>
 				</ul>
 				<p>Ready to start playing? <a href="%s" style="color: #2563eb;">Log in now</a></p>
-				<p>Keep an eye out on <a href="https://clyde.biz" style="color: #2563eb;">my personal site</a> for a more permanent deployment!</p>
+				<p>Need a developer? Check out <a href="https://clyde.biz" style="color: #2563eb;">my portfolio site</a>!</p>
 				<hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
 				<p style="color: #6b7280; font-size: 12px;">
 					This is an automated message. Please do not reply to this email.
