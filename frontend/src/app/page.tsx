@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { listGames } from '@/utils/api';
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -9,14 +10,8 @@ export default function Home() {
   useEffect(() => {
     // Check if user is logged in by checking for session cookie
     const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/game/list', {
-          credentials: 'include',
-        });
-        setIsLoggedIn(response.ok);
-      } catch {
-        setIsLoggedIn(false);
-      }
+      const response = await listGames();
+      setIsLoggedIn(!response.error);
     };
     checkAuth();
   }, []);
