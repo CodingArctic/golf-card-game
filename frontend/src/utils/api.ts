@@ -35,7 +35,6 @@ export interface ApiError {
   message?: string;
 }
 
-
 /**
  * Makes a type-safe API request to the specified endpoint
  * @param endpoint - The API endpoint to call
@@ -44,24 +43,25 @@ export interface ApiError {
  */
 export async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
   const defaultHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    "Content-Type": "application/json",
+    Accept: "application/json",
   };
 
   try {
     const url = `${baseUrl}${endpoint}`;
-    
+
     const response = await fetch(url, {
       ...options,
       headers: {
         ...defaultHeaders,
         ...options.headers,
       },
-      credentials: 'include', // Ensure cookies are sent/received
+      credentials: "include", // Ensure cookies are sent/received
     });
 
     const data = await response.json();
@@ -69,14 +69,15 @@ export async function fetchApi<T>(
     // Generic error handling
     if (!response.ok) {
       const errorResponse = data as ApiError;
-      return { 
-        error: errorResponse.message || errorResponse.error || 'An error occurred'
+      return {
+        error:
+          errorResponse.message || errorResponse.error || "An error occurred",
       };
     }
 
     return { data: data as T };
   } catch (error) {
-    return { error: 'Network error occurred' };
+    return { error: "Network error occurred" };
   }
 }
 
@@ -86,11 +87,11 @@ export async function fetchApi<T>(
  * @returns A promise that resolves to the login response with your custom token
  */
 export async function loginUser(
-  credentials: LoginCredentials
+  credentials: LoginCredentials,
 ): Promise<ApiResponse<LoginResponse>> {
   // The backend will set a cookie; no need to store token client-side
-  return fetchApi<LoginResponse>('/login', {
-    method: 'POST',
+  return fetchApi<LoginResponse>("/login", {
+    method: "POST",
     body: JSON.stringify(credentials),
   });
 }
@@ -99,9 +100,11 @@ export async function loginUser(
  * Gets a registration nonce token
  * @returns A promise that resolves to the nonce token
  */
-export async function getRegistrationNonce(): Promise<ApiResponse<{ nonce: string }>> {
-  return fetchApi<{ nonce: string }>('/register/nonce', {
-    method: 'GET',
+export async function getRegistrationNonce(): Promise<
+  ApiResponse<{ nonce: string }>
+> {
+  return fetchApi<{ nonce: string }>("/register/nonce", {
+    method: "GET",
   });
 }
 
@@ -111,10 +114,10 @@ export async function getRegistrationNonce(): Promise<ApiResponse<{ nonce: strin
  * @returns A promise that resolves to the registration response
  */
 export async function registerUser(
-  credentials: RegisterCredentials
+  credentials: RegisterCredentials,
 ): Promise<ApiResponse<RegisterResponse>> {
-  return fetchApi<RegisterResponse>('/register', {
-    method: 'POST',
+  return fetchApi<RegisterResponse>("/register", {
+    method: "POST",
     body: JSON.stringify(credentials),
   });
 }
@@ -124,8 +127,8 @@ export async function registerUser(
  * @returns A promise that resolves to the logout response
  */
 export async function logoutUser(): Promise<ApiResponse<{ message: string }>> {
-  return fetchApi<{ message: string }>('/logout', {
-    method: 'POST',
+  return fetchApi<{ message: string }>("/logout", {
+    method: "POST",
   });
 }
 
@@ -159,10 +162,15 @@ export interface GameListResponse {
  * Creates a new game
  * @returns A promise that resolves to the created game info
  */
-export async function createGame(): Promise<ApiResponse<{ gameId: number; publicId: string; status: string }>> {
-  return fetchApi<{ gameId: number; publicId: string; status: string }>('/game/create', {
-    method: 'POST',
-  });
+export async function createGame(): Promise<
+  ApiResponse<{ gameId: number; publicId: string; status: string }>
+> {
+  return fetchApi<{ gameId: number; publicId: string; status: string }>(
+    "/game/create",
+    {
+      method: "POST",
+    },
+  );
 }
 
 /**
@@ -173,10 +181,10 @@ export async function createGame(): Promise<ApiResponse<{ gameId: number; public
  */
 export async function invitePlayer(
   gameId: number,
-  invitedUsername: string
+  invitedUsername: string,
 ): Promise<ApiResponse<{ message: string }>> {
-  return fetchApi<{ message: string }>('/game/invite', {
-    method: 'POST',
+  return fetchApi<{ message: string }>("/game/invite", {
+    method: "POST",
     body: JSON.stringify({ gameId, invitedUsername }),
   });
 }
@@ -187,10 +195,10 @@ export async function invitePlayer(
  * @returns A promise that resolves to the acceptance response
  */
 export async function acceptInvitation(
-  gameId: number
+  gameId: number,
 ): Promise<ApiResponse<{ message: string }>> {
-  return fetchApi<{ message: string }>('/game/accept', {
-    method: 'POST',
+  return fetchApi<{ message: string }>("/game/accept", {
+    method: "POST",
     body: JSON.stringify({ gameId }),
   });
 }
@@ -201,10 +209,10 @@ export async function acceptInvitation(
  * @returns A promise that resolves to the decline response
  */
 export async function declineInvitation(
-  gameId: number
+  gameId: number,
 ): Promise<ApiResponse<{ message: string }>> {
-  return fetchApi<{ message: string }>('/game/decline', {
-    method: 'POST',
+  return fetchApi<{ message: string }>("/game/decline", {
+    method: "POST",
     body: JSON.stringify({ gameId }),
   });
 }
@@ -214,7 +222,7 @@ export async function declineInvitation(
  * @returns A promise that resolves to the game lists
  */
 export async function listGames(): Promise<ApiResponse<GameListResponse>> {
-  return fetchApi<GameListResponse>('/game/list', {
-    method: 'GET',
+  return fetchApi<GameListResponse>("/game/list", {
+    method: "GET",
   });
 }

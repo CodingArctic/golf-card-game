@@ -289,6 +289,12 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
+		// Validate message length (max 500 characters)
+		if len(msg.Message) > 500 {
+			log.Printf("Message too long from user %s: %d characters", userID, len(msg.Message))
+			continue
+		}
+
 		// Save message to database
 		if chatRepo != nil {
 			savedMsg, err := chatRepo.SaveMessage(ctx, userID, "global", msg.Message)
