@@ -15,10 +15,10 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// load .env file
+	// load .env file (optional - environment variables may be set by Docker/system)
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal(err)
+		log.Println("No .env file found, using environment variables")
 	}
 
 	connectionString := os.Getenv("CONNECTION_STRING")
