@@ -29,7 +29,7 @@ services:
         condition: service_healthy
     environment:
       # Database connection
-      CONNECTION_STRING: postgres://golfer:${POSTGRES_PASSWORD}@postgres:5432/golf?sslmode=disable
+      CONNECTION_STRING: postgres://golfer:${POSTGRES_PASSWORD_ENCODED}@postgres:5432/golf?sslmode=disable
       
       # Server configuration
       HOST_ADDRESS: :8080
