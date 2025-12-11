@@ -1,11 +1,3 @@
-DROP DATABASE IF EXISTS golf;
-
-CREATE DATABASE golf;
-
-ALTER DATABASE golf OWNER TO golfer;
-
-\c golf;
-
 CREATE TABLE users (
     user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username TEXT UNIQUE NOT NULL,
