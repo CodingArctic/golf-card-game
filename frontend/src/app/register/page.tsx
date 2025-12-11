@@ -1,73 +1,75 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import Script from 'next/script';
-import { registerUser, getRegistrationNonce } from '@/utils/api';
-import '../globals.css';
-import { IoIosArrowBack } from 'react-icons/io';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Script from "next/script";
+import { registerUser, getRegistrationNonce } from "@/utils/api";
+import "../globals.css";
+import { IoIosArrowBack } from "react-icons/io";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
   const [nonce, setNonce] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
+  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(
+    null,
+  );
   const [errors, setErrors] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
 
   const validateForm = () => {
     let isValid = true;
     const newErrors = {
-      username: '',
-      email: '',
-      password: '',
-      confirmPassword: ''
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
     };
 
     // Username validation
     if (!formData.username) {
-      newErrors.username = 'Username is required';
+      newErrors.username = "Username is required";
       isValid = false;
     } else if (formData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters';
+      newErrors.username = "Username must be at least 3 characters";
       isValid = false;
     }
 
     // Email validation
     if (!formData.email) {
-      newErrors.email = 'Email is required';
+      newErrors.email = "Email is required";
       isValid = false;
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
+      newErrors.email = "Please enter a valid email";
       isValid = false;
     }
 
     // Password validation
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
       isValid = false;
     } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+      newErrors.password = "Password must be at least 8 characters";
       isValid = false;
     }
 
     // Confirm password validation
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
+      newErrors.confirmPassword = "Please confirm your password";
       isValid = false;
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = "Passwords do not match";
       isValid = false;
     }
 
@@ -76,7 +78,7 @@ export default function RegisterPage() {
   };
 
   const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState('');
+  const [apiError, setApiError] = useState("");
 
   // Fetch nonce token when component mounts
   useEffect(() => {
@@ -85,7 +87,9 @@ export default function RegisterPage() {
       if (response.data?.nonce) {
         setNonce(response.data.nonce);
       } else {
-        setApiError('Failed to load registration token. Please refresh the page.');
+        setApiError(
+          "Failed to load registration token. Please refresh the page.",
+        );
       }
     };
     fetchNonce();
@@ -94,25 +98,30 @@ export default function RegisterPage() {
   useEffect(() => {
     // Render Turnstile widget after script loads
     const renderWidget = () => {
-      if (typeof (window as any).turnstile !== 'undefined' && !turnstileWidgetId) {
-        const widgetId = (window as any).turnstile.render('#turnstile-widget', {
-          sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA',
+      if (
+        typeof (window as any).turnstile !== "undefined" &&
+        !turnstileWidgetId
+      ) {
+        const widgetId = (window as any).turnstile.render("#turnstile-widget", {
+          sitekey:
+            process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+            "1x00000000000000000000AA",
           callback: (token: string) => {
             setTurnstileToken(token);
           },
-          theme: 'auto',
+          theme: "auto",
         });
         setTurnstileWidgetId(widgetId);
       }
     };
 
     // Try to render immediately if script already loaded
-    if (typeof (window as any).turnstile !== 'undefined') {
+    if (typeof (window as any).turnstile !== "undefined") {
       renderWidget();
     } else {
       // Otherwise wait for script to load
       const checkInterval = setInterval(() => {
-        if (typeof (window as any).turnstile !== 'undefined') {
+        if (typeof (window as any).turnstile !== "undefined") {
           renderWidget();
           clearInterval(checkInterval);
         }
@@ -126,61 +135,68 @@ export default function RegisterPage() {
     e.preventDefault();
     if (validateForm()) {
       if (!nonce) {
-        setApiError('Registration token not available. Please refresh the page.');
+        setApiError(
+          "Registration token not available. Please refresh the page.",
+        );
         return;
       }
 
       if (!turnstileToken) {
-        setApiError('Please complete the captcha verification.');
+        setApiError("Please complete the captcha verification.");
         return;
       }
 
       setIsLoading(true);
-      setApiError('');
-      
+      setApiError("");
+
       const response = await registerUser({
         username: formData.username,
         email: formData.email,
         password: formData.password,
         nonce: nonce,
-        turnstileToken: turnstileToken
+        turnstileToken: turnstileToken,
       });
 
       if (response.error) {
         setApiError(response.error);
         // Reset Turnstile widget after failed attempt
-        if (turnstileWidgetId !== null && typeof (window as any).turnstile !== 'undefined') {
+        if (
+          turnstileWidgetId !== null &&
+          typeof (window as any).turnstile !== "undefined"
+        ) {
           (window as any).turnstile.reset(turnstileWidgetId);
         }
         setTurnstileToken(null);
-        
+
         // Fetch a new nonce for the next attempt
         const nonceResponse = await getRegistrationNonce();
         if (nonceResponse.data?.nonce) {
           setNonce(nonceResponse.data.nonce);
         } else {
-          setApiError('Failed to refresh registration token. Please refresh the page.');
+          setApiError(
+            "Failed to refresh registration token. Please refresh the page.",
+          );
         }
       } else {
         // Registration successful, redirect to login
-        router.push('/login?registered=true');
+        router.push("/login?registered=true");
       }
-      
+
       setIsLoading(false);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     // Clear error for this field when user starts typing
     if (errors[name as keyof typeof errors]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
+        [name]: "",
       }));
     }
   };
@@ -190,7 +206,7 @@ export default function RegisterPage() {
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
         <div className="relative">
           <Link
-            href={'/'}
+            href={"/"}
             className="absolute left-0 top-0 flex justify-center py-2 px-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
           >
             <IoIosArrowBack fontSize={24} />
@@ -202,7 +218,10 @@ export default function RegisterPage() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
                 Username
               </label>
               <input
@@ -212,7 +231,9 @@ export default function RegisterPage() {
                 autoComplete="username"
                 required
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.username ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  errors.username
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
                 }`}
                 placeholder="Choose a username"
                 value={formData.username}
@@ -226,7 +247,10 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
                 Email address
               </label>
               <input
@@ -236,7 +260,9 @@ export default function RegisterPage() {
                 autoComplete="email"
                 required
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.email ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  errors.email
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
                 }`}
                 placeholder="Enter your email"
                 value={formData.email}
@@ -250,7 +276,10 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
                 Password
               </label>
               <input
@@ -260,7 +289,9 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 required
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.password ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  errors.password
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
                 }`}
                 placeholder="Enter your password"
                 value={formData.password}
@@ -274,7 +305,10 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
                 Confirm Password
               </label>
               <input
@@ -284,7 +318,9 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 required
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.confirmPassword ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  errors.confirmPassword
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
                 }`}
                 placeholder="Confirm your password"
                 value={formData.confirmPassword}
@@ -309,8 +345,8 @@ export default function RegisterPage() {
             <div id="turnstile-widget"></div>
           </div>
 
-          <Script 
-            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" 
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
             strategy="lazyOnload"
           />
 
@@ -320,14 +356,17 @@ export default function RegisterPage() {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creating account...' : 'Register'}
+              {isLoading ? "Creating account..." : "Register"}
             </button>
           </div>
 
           <div className="text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Already have an account?{' '}
-              <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+              >
                 Sign in here
               </Link>
             </p>

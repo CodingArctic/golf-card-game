@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { listGames } from '@/utils/api';
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { listGames } from "@/utils/api";
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -29,7 +29,9 @@ export default function Home() {
         </div>
       )}
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <h1 className="text-4xl text-center">Welcome to Golf Card Game Online!</h1>
+        <h1 className="text-4xl text-center">
+          Welcome to Golf Card Game Online!
+        </h1>
         <div className="flex gap-4 w-full items-center justify-center flex-col  sm:flex-row">
           <a
             className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
@@ -45,9 +47,7 @@ export default function Home() {
           </a>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-
-      </footer>
+      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center"></footer>
     </div>
   );
 }

@@ -1,47 +1,49 @@
-'use client';
+"use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { loginUser } from '@/utils/api';
-import '../globals.css';
-import { IoIosArrowBack } from 'react-icons/io';
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { loginUser } from "@/utils/api";
+import "../globals.css";
+import { IoIosArrowBack } from "react-icons/io";
 
 function Login() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
-    username: '',
-    password: ''
+    username: "",
+    password: "",
   });
   const [errors, setErrors] = useState({
-    username: '',
-    password: '',
+    username: "",
+    password: "",
   });
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
-    if (searchParams.get('registered') === 'true') {
-      setSuccessMessage('Registration successful! Please log in with your credentials.');
+    if (searchParams.get("registered") === "true") {
+      setSuccessMessage(
+        "Registration successful! Please log in with your credentials.",
+      );
     }
   }, [searchParams]);
 
   const validateForm = () => {
     let isValid = true;
     const newErrors = {
-      username: '',
-      password: ''
+      username: "",
+      password: "",
     };
 
     // Username validation
     if (!formData.username) {
-      newErrors.username = 'Username is required';
+      newErrors.username = "Username is required";
       isValid = false;
     }
 
     // Password validation
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
       isValid = false;
     }
 
@@ -50,20 +52,20 @@ function Login() {
   };
 
   const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState('');
+  const [apiError, setApiError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
       setIsLoading(true);
-      setApiError('');
+      setApiError("");
 
       const response = await loginUser(formData);
 
       if (response.error) {
         setApiError(response.error);
       } else {
-        router.push('/dash');
+        router.push("/dash");
       }
 
       setIsLoading(false);
@@ -72,9 +74,9 @@ function Login() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -83,7 +85,7 @@ function Login() {
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
         <div className="relative">
           <Link
-            href={'/'}
+            href={"/"}
             className="absolute left-0 top-0 flex justify-center py-2 px-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
           >
             <IoIosArrowBack fontSize={24} />
@@ -95,7 +97,10 @@ function Login() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
                 Username
               </label>
               <input
@@ -104,8 +109,11 @@ function Login() {
                 type="text"
                 autoComplete="username"
                 required
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.username ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.username
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
                 placeholder="Enter your username"
                 value={formData.username}
                 onChange={handleChange}
@@ -117,7 +125,10 @@ function Login() {
               )}
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
                 Password
               </label>
               <input
@@ -126,8 +137,11 @@ function Login() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.password ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.password
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
                 placeholder="Enter your password"
                 value={formData.password}
                 onChange={handleChange}
@@ -157,14 +171,17 @@ function Login() {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? "Signing in..." : "Sign in"}
             </button>
           </div>
 
           <div className="text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Don't have an account?{' '}
-              <Link href="/register/" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+              Don't have an account?{" "}
+              <Link
+                href="/register/"
+                className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+              >
                 Register here
               </Link>
             </p>
@@ -180,7 +197,7 @@ function Loading() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <p className="text-gray-900 dark:text-white">Loading...</p>
     </div>
-  )
+  );
 }
 
 export default function LoginPage() {
@@ -188,5 +205,5 @@ export default function LoginPage() {
     <Suspense fallback={<Loading />}>
       <Login />
     </Suspense>
-  )
+  );
 }
