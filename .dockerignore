@@ -18,9 +18,6 @@ frontend/out
 frontend/.env
 frontend/.env.local
 
-# Go
-*.sum
-
 # IDE
 .vscode
 .idea
