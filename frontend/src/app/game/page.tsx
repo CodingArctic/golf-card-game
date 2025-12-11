@@ -3,6 +3,13 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef, Suspense } from "react";
 import Card from "@/components/Card";
+import {
+	createGame,
+	invitePlayer,
+	acceptInvitation,
+	listGames,
+	type GameInvitation,
+} from "@/utils/api";
 
 interface CardData {
 	suit: string;
@@ -63,6 +70,9 @@ function GameRoomContent() {
 	const [discardMode, setDiscardMode] = useState(false);
 	const [gameEndData, setGameEndData] = useState<GameEndData | null>(null);
 	const [isChatOpen, setIsChatOpen] = useState(false);
+	const [rematchRequested, setRematchRequested] = useState(false);
+	const [rematchInvitations, setRematchInvitations] = useState<GameInvitation[]>([]);
+	const [rematchLoading, setRematchLoading] = useState(false);
 
 	const wsRef = useRef<WebSocket | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -71,9 +81,146 @@ function GameRoomContent() {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	};
 
+	const checkForRematchInvitations = async () => {
+		if (!gameState) return;
+		
+		const response = await listGames();
+		if (response.data?.invitations) {
+			// Find invitations from players who were in this game
+			const playerUserIds = gameState.players.map((p) => p.userId);
+			const rematchInvites = response.data.invitations.filter((inv) =>
+				playerUserIds.includes(inv.invitedBy) && inv.invitedBy !== gameState.currentUserId
+			);
+			setRematchInvitations(rematchInvites);
+		}
+	};
+
+	const handleRematch = async () => {
+		if (!gameState || rematchLoading) return;
+
+		setRematchLoading(true);
+		try {
+			// First check for existing rematch invitations
+			await checkForRematchInvitations();
+			
+			// If there's already a rematch invitation from another player, accept it instead
+			if (rematchInvitations.length > 0) {
+				const invitation = rematchInvitations[0];
+				const acceptResponse = await acceptInvitation(invitation.gameId);
+				if (acceptResponse.error) {
+					setErrorMessage(acceptResponse.error);
+					return;
+				}
+				setGameEndData(null); // Clear the game over modal
+				router.push(`/game?gameId=${invitation.gameId}`);
+				return;
+			}
+
+			// Deterministic tie-breaking: add a delay based on userId comparison
+			// This prevents both players from creating games simultaneously
+			const otherPlayers = gameState.players.filter((p) => p.userId !== gameState.currentUserId);
+			if (otherPlayers.length > 0) {
+				// If our userId is "less than" the other player's, wait longer
+				const shouldWait = otherPlayers.some((p) => gameState.currentUserId < p.userId);
+				if (shouldWait) {
+					// Wait 1.5 seconds to give the other player time to create and send invite
+					await new Promise(resolve => setTimeout(resolve, 1500));
+					// Check again after waiting - use fresh data from API
+					const recheckResponse = await listGames();
+					if (recheckResponse.data?.invitations) {
+						const playerUserIds = gameState.players.map((p) => p.userId);
+						const freshRematchInvites = recheckResponse.data.invitations.filter((inv) =>
+							playerUserIds.includes(inv.invitedBy) && inv.invitedBy !== gameState.currentUserId
+						);
+						if (freshRematchInvites.length > 0) {
+							const invitation = freshRematchInvites[0];
+							const acceptResponse = await acceptInvitation(invitation.gameId);
+							if (acceptResponse.error) {
+								setErrorMessage(acceptResponse.error);
+								return;
+							}
+							setGameEndData(null); // Clear the game over modal
+							router.push(`/game?gameId=${invitation.gameId}`);
+							return;
+						}
+					}
+				}
+			}
+
+			// Create a new game
+			const createResponse = await createGame();
+			if (createResponse.error || !createResponse.data) {
+				setErrorMessage(createResponse.error || "Failed to create rematch game");
+				return;
+			}
+
+			const newGameId = createResponse.data.gameId;
+
+			// Final check: did someone create a game while we were creating ours?
+			// Use fresh data from API, not state
+			const finalCheckResponse = await listGames();
+			if (finalCheckResponse.data?.invitations) {
+				const playerUserIds = gameState.players.map((p) => p.userId);
+				const freshRematchInvites = finalCheckResponse.data.invitations.filter((inv) =>
+					playerUserIds.includes(inv.invitedBy) && inv.invitedBy !== gameState.currentUserId
+				);
+				if (freshRematchInvites.length > 0) {
+					// Another player created a game first, join theirs instead
+					// At this stage we would have created an 'orphan' game with no invites, but can be cleaned up later
+					const invitation = freshRematchInvites[0];
+					const acceptResponse = await acceptInvitation(invitation.gameId);
+					if (acceptResponse.error) {
+						setErrorMessage(acceptResponse.error);
+						return;
+					}
+					setGameEndData(null); // Clear the game over modal
+					router.push(`/game?gameId=${invitation.gameId}`);
+					return;
+				}
+			}
+
+			// Invite all other players from the finished game
+			const invitePromises = gameState.players
+				.filter((player) => player.userId !== gameState.currentUserId)
+				.map((player) => invitePlayer(newGameId, player.username));
+
+			await Promise.all(invitePromises);
+			setRematchRequested(true);
+
+			// Navigate to the new game
+			setGameEndData(null); // Clear the game over modal
+			router.push(`/game?gameId=${newGameId}`);
+		} catch (error) {
+			setErrorMessage("Failed to create rematch");
+		} finally {
+			setRematchLoading(false);
+		}
+	};
+
 	useEffect(() => {
 		scrollToBottom();
 	}, [messages]);
+
+	// Reset rematch state when gameId changes (new game started)
+	useEffect(() => {
+		setRematchRequested(false);
+		setRematchInvitations([]);
+		setRematchLoading(false);
+		setGameEndData(null);
+		setDiscardMode(false);
+		setGameState(null);
+		setMessages([]);
+	}, [gameId]);
+
+	// Check for rematch invitations when game ends
+	useEffect(() => {
+		if (gameEndData && gameState) {
+			checkForRematchInvitations();
+			// Check periodically for new rematch invitations
+			const interval = setInterval(checkForRematchInvitations, 3000);
+			return () => clearInterval(interval);
+		}
+	}, [gameEndData, gameState]);
 
 	useEffect(() => {
 		if (!gameId) {
@@ -270,8 +417,8 @@ function GameRoomContent() {
 					<p className="text-green-200">
 						Game #{gameState.gameId} • Status: {titleCase(gameState.status)} • Phase: {titleCase(gameState.phase)}
 					</p>
-					{/* Show turn indicator only after waiting & initial_flip phases */}
-					{(gameState.phase == "initial_flip" || gameState.phase == "waiting") ? (
+					{/* Don't turn indicator during waiting, initial_flip, or finished phases */}
+					{(gameState.phase == "initial_flip" || gameState.phase == "waiting" || gameState.phase == "finished") ? (
 						<></>
 					) : (isYourTurn) ? (
 						<p className="text-yellow-300 font-semibold mt-2">
@@ -503,13 +650,39 @@ function GameRoomContent() {
 								))}
 							</div>
 						</div>
-						<button
-							type="button"
-							onClick={() => router.push("/dash")}
-							className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-						>
-							Back to Dashboard
-						</button>
+						<div className="space-y-3">
+							<button
+								type="button"
+								onClick={handleRematch}
+								disabled={rematchLoading || rematchRequested}
+								className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${
+									rematchInvitations.length > 0
+										? "bg-green-600 hover:bg-green-700 text-white animate-pulse"
+										: rematchRequested
+										? "bg-gray-500 text-gray-300 cursor-not-allowed"
+										: "bg-purple-600 hover:bg-purple-700 text-white"
+								}`}
+							>
+								{rematchLoading ? (
+									"Creating Rematch..."
+								) : rematchInvitations.length > 0 ? (
+									<>
+										🔄 Accept Rematch ({rematchInvitations.length} waiting!)
+									</>
+								) : rematchRequested ? (
+									"Rematch Requested ✓"
+								) : (
+									"🔄 Rematch"
+								)}
+							</button>
+							<button
+								type="button"
+								onClick={() => router.push("/dash")}
+								className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+							>
+								Back to Dashboard
+							</button>
+						</div>
 					</div>
 				</div>
 			)}
