@@ -739,22 +739,32 @@ function GameRoomContent() {
 
 				{/* Input */}
 				<div className="p-4 border-t border-gray-200 dark:border-gray-800">
-					<div className="flex gap-2">
-						<input
-							type="text"
-							value={messageInput}
-							onChange={(e) => setMessageInput(e.target.value)}
-							onKeyPress={handleKeyPress}
-							placeholder="Type a message..."
-							className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white rounded border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none"
-						/>
-						<button
-							type="button"
-							onClick={sendMessage}
-							className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-						>
-							Send
-						</button>
+					<div className="flex flex-col gap-2">
+						<div className="flex gap-2">
+							<input
+								type="text"
+								value={messageInput}
+								onChange={(e) => setMessageInput(e.target.value)}
+								onKeyPress={handleKeyPress}
+								placeholder="Type a message..."
+								maxLength={500}
+								className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white rounded border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none"
+							/>
+							<button
+								type="button"
+								onClick={sendMessage}
+								className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+							>
+								Send
+							</button>
+						</div>
+						{messageInput && (
+							<div className="text-xs text-right">
+								<span className={messageInput.length > 450 ? 'text-orange-500 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400'}>
+									{messageInput.length}/500
+								</span>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>

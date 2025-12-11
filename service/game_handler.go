@@ -494,6 +494,12 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
+			// Validate message length (max 500 characters)
+			if len(chatPayload.Message) > 500 {
+				log.Printf("Message too long from user %s in game %d: %d characters", userID, gameID, len(chatPayload.Message))
+				continue
+			}
+
 			// Save message to database with game scope
 			if chatRepo != nil {
 				scope := fmt.Sprintf("game:%d", gameID)
