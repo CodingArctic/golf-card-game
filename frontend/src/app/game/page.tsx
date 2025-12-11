@@ -698,7 +698,7 @@ function GameRoomContent() {
 			)}
 
 			{/* Chat sidebar - Hidden on mobile unless toggled, always visible on md+ */}
-			<div className={`${isChatOpen ? 'fixed inset-0 z-50' : 'hidden'} md:block md:relative md:w-80 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col`}>
+			<div className={`${isChatOpen ? 'fixed inset-0 z-50 h-screen' : 'hidden'} md:flex md:flex-col md:w-80 md:max-h-screen bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col`}>
 				<div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
 					<div>
 						<h2 className="text-xl font-semibold text-gray-900 dark:text-white">Game Chat</h2>
