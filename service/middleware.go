@@ -27,6 +27,7 @@ func SessionMiddleware(next http.Handler) http.Handler {
 			path == "/api/logout" ||
 			strings.HasPrefix(r.URL.Path, "/login") ||
 			strings.HasPrefix(r.URL.Path, "/register") ||
+			strings.HasPrefix(r.URL.Path, "/instructions") ||
 			strings.HasPrefix(r.URL.Path, "/static/") ||
 			strings.HasPrefix(r.URL.Path, "/_next/") {
 			next.ServeHTTP(w, r)
