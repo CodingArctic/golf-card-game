@@ -314,6 +314,26 @@ export default function DashPage() {
               </svg>
             </button>
             <button
+              onClick={() => router.push('/instructions')}
+              className="p-2 md:px-4 md:py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              title="How to play"
+            >
+              <svg
+                className="w-5 h-5 md:hidden"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="hidden md:inline text-sm">Instructions</span>
+            </button>
+            <button
               onClick={loadGames}
               className="p-2 md:px-4 md:py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
               title="Refresh games and invitations"
