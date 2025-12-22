@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -23,7 +22,7 @@ func main() {
 	}
 
 	connectionString := os.Getenv("CONNECTION_STRING")
-	hostAddress := os.Getenv("HOST_ADDRESS")
+	serverPort := os.Getenv("SERVER_PORT")
 
 	// create database connection pool
 	db, err := database.NewPool(ctx, connectionString)
@@ -85,7 +84,6 @@ func main() {
 
 	// If we hadn't created a custom mux to enable middleware,
 	// the second param would be nil, which uses http.DefaultServeMux.
-	listenAddr := strings.TrimPrefix(strings.TrimPrefix(hostAddress, "http://"), "https://")
-	log.Print("listening on: " + hostAddress)
-	log.Fatal(http.ListenAndServe(listenAddr, protected))
+	log.Print("listening on: http://localhost" + serverPort)
+	log.Fatal(http.ListenAndServe(serverPort, protected))
 }
