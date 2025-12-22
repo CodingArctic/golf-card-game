@@ -252,15 +252,25 @@ function GameRoomContent() {
       return;
     }
 
-    // Connect to game WebSocket - same origin as the page
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    let isCleaningUp = false;
+
+    // Close any existing connection first
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/ws/game/${gameId}`;
 
     wsRef.current = new WebSocket(wsUrl);
 
     wsRef.current.onopen = () => {
-      console.log("Game WebSocket has connected");
-      setWsConnected(true);
+      if (!isCleaningUp) {
+        console.log("Game WebSocket has connected");
+        setWsConnected(true);
+      }
     };
 
     wsRef.current.onmessage = (event) => {
@@ -297,15 +307,20 @@ function GameRoomContent() {
     };
 
     wsRef.current.onerror = (error) => {
-      console.error("Game WebSocket error:", error);
+      if (!isCleaningUp) {
+        console.error("Game WebSocket error:", error);
+      }
     };
 
-    wsRef.current.onclose = () => {
-      console.log("Game WebSocket has disconnected");
+    wsRef.current.onclose = (event) => {
+      if (!isCleaningUp && event.code !== 1000) {
+        console.log("Game WebSocket has disconnected");
+      }
       setWsConnected(false);
     };
 
     return () => {
+      isCleaningUp = true;
       // Close with normal closure code (1000)
       if (
         wsRef.current &&
@@ -313,6 +328,7 @@ function GameRoomContent() {
           wsRef.current.readyState === WebSocket.CONNECTING)
       ) {
         wsRef.current.close(1000, "Navigating away");
+        wsRef.current = null;
       }
     };
   }, [gameId, router]);
@@ -827,8 +843,21 @@ function GameRoomContent() {
                 type="button"
                 onClick={sendMessage}
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                title="Send message"
               >
-                Send
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
+                  />
+                </svg>
               </button>
             </div>
             {messageInput && (
