@@ -89,6 +89,7 @@ export default function DashPage() {
   }, [messages, isChatOpen, onlinePlayers]);
 
   useEffect(() => {
+    shouldReconnectRef.current = true;
     connectWebSocket();
     loadGames(); // Initial load
 
@@ -100,6 +101,7 @@ export default function DashPage() {
           wsRef.current.readyState === WebSocket.CONNECTING)
       ) {
         wsRef.current.close(1000, "Navigating away");
+        wsRef.current = null;
       }
     };
   }, []);
@@ -173,8 +175,18 @@ export default function DashPage() {
   };
 
   function connectWebSocket() {
-    const protocol = window.location.protocol === `https:` ? `wss:` : `ws:`,
-      wsUrl = `${protocol}//${window.location.host}/api/ws/chat`;
+    // Don't connect if we're not supposed to reconnect (component unmounted)
+    if (!shouldReconnectRef.current) return;
+
+    // Close any existing connection first
+    if (wsRef.current) {
+      wsRef.current.onclose = null; // Remove handler to prevent reconnection
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/ws/chat`;
 
     wsRef.current = new WebSocket(wsUrl);
 
@@ -183,12 +195,18 @@ export default function DashPage() {
     };
 
     wsRef.current.onerror = (err) => {
-      console.log(`Lobby WebSocket error occurred: `, err);
+      // Only log errors if we're supposed to be connected
+      if (shouldReconnectRef.current) {
+        console.log(`Lobby WebSocket error occurred: `, err);
+      }
     };
 
     // usually means a network connection failure, but client is still open
-    wsRef.current.onclose = () => {
-      console.log(`Lobby WebSocket has disconnected`);
+    wsRef.current.onclose = (event) => {
+      // Only log if not a normal closure and we're still supposed to be connected
+      if (shouldReconnectRef.current && event.code !== 1000) {
+        console.log(`Lobby WebSocket has disconnected`);
+      }
 
       // only attempt reconnect if component is still mounted
       if (shouldReconnectRef.current) {
@@ -286,7 +304,7 @@ export default function DashPage() {
       .replace(/[-_]+(.)/g, (_, c) => " " + c.toUpperCase());
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-screen">
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">
@@ -522,11 +540,11 @@ export default function DashPage() {
 
       {/* Chat Sidebar - Hidden on mobile unless toggled, always visible on md+ */}
       <aside
-        className={`${isChatOpen ? "fixed inset-0 z-50 h-screen" : "hidden"} md:flex md:flex-col md:w-80 md:max-h-screen bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col`}
+        className={`${isChatOpen ? "fixed inset-0 z-50 h-screen" : "hidden"} md:flex md:flex-col md:w-80 md:max-h-screen bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col`}
       >
         {/* Mobile Header with Close Button - Only shown on mobile */}
         {isChatOpen && (
-          <div className="md:hidden p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="md:hidden p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Chat & Players
             </h2>
@@ -553,7 +571,7 @@ export default function DashPage() {
         )}
 
         {/* Online Players */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
             <span className="w-2 h-2 bg-green-500 rounded-full"></span>
             Online ({onlinePlayers.length})
@@ -577,7 +595,7 @@ export default function DashPage() {
         </div>
 
         {/* Chat Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Lobby Chat
           </h2>
@@ -595,9 +613,9 @@ export default function DashPage() {
             </div>
           ) : (
             messages.map((message) => (
-              <div key={message.id} className="group">
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="font-medium text-sm text-gray-900 dark:text-white">
+              <div key={message.id} className="text-sm">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">
                     {message.username}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -607,9 +625,9 @@ export default function DashPage() {
                     })}
                   </span>
                 </div>
-                <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 text-sm text-gray-800 dark:text-gray-200">
+                <p className="text-gray-700 dark:text-gray-300 mt-1">
                   {message.content}
-                </div>
+                </p>
               </div>
             ))
           )}
@@ -617,7 +635,7 @@ export default function DashPage() {
         </div>
 
         {/* Input Area */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-800">
           <div className="flex flex-col gap-2">
             <div className="flex gap-2">
               <input
@@ -627,17 +645,11 @@ export default function DashPage() {
                 onKeyPress={handleKeyPress}
                 placeholder="Type a message..."
                 maxLength={500}
-                className="flex-1 px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg 
-                                         bg-white dark:bg-gray-700 text-gray-900 dark:text-white 
-                                         placeholder-gray-500 dark:placeholder-gray-400
-                                         focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white rounded border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none"
               />
               <button
                 onClick={handleSendMessage}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg 
-                                         transition-colors duration-200 focus:outline-none focus:ring-2 
-                                         focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 
-                                         disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={!inputValue.trim()}
                 title="Send message"
               >
@@ -651,7 +663,7 @@ export default function DashPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                    d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
                   />
                 </svg>
               </button>
