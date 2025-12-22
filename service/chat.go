@@ -6,6 +6,7 @@ import (
 	"golf-card-game/database"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -27,17 +28,8 @@ const (
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
-		allowedOrigins := []string{
-			"http://localhost:8080",
-			"https://golf.webdev.gccis.rit.edu",
-			"https://golf.clyde.biz",
-		}
-		for _, allowed := range allowedOrigins {
-			if origin == allowed {
-				return true
-			}
-		}
-		return false
+		allowedOrigin := os.Getenv("HOST_ADDRESS")
+		return origin == allowedOrigin
 	},
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
