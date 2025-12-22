@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -84,6 +85,7 @@ func main() {
 
 	// If we hadn't created a custom mux to enable middleware,
 	// the second param would be nil, which uses http.DefaultServeMux.
-	log.Print("listening on: http://" + hostAddress)
-	log.Fatal(http.ListenAndServe(hostAddress, protected))
+	listenAddr := strings.TrimPrefix(strings.TrimPrefix(hostAddress, "http://"), "https://")
+	log.Print("listening on: " + hostAddress)
+	log.Fatal(http.ListenAndServe(listenAddr, protected))
 }
