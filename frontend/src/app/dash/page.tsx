@@ -619,10 +619,7 @@ export default function DashPage() {
                     {message.username}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-gray-500">
-                    {new Date(message.timestamp).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {new Date(message.timestamp).toLocaleTimeString()}
                   </span>
                 </div>
                 <p className="text-gray-700 dark:text-gray-300 mt-1">
