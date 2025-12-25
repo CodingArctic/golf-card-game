@@ -432,6 +432,35 @@ function GameRoomContent() {
     );
   }
 
+  const TurnIndicator = (gameState: GameState, isYourTurn: boolean, isHeader: boolean) => {
+    let width = window.innerWidth;
+
+    // check width + location of turn indicator for conditional rendering
+    if (width <= 768 && isHeader) {
+      return <></>
+    }
+    if (width > 768 && !isHeader) {
+      return <></>
+    }
+
+    if (gameState.phase == "initial_flip" ||
+      gameState.phase == "waiting" ||
+      gameState.phase == "finished") {
+      return <></>
+    }
+
+    if (isYourTurn) {
+      return <p className="text-yellow-300 font-semibold mt-2">⭐ Your Turn</p>
+    }
+
+    return (
+      <p className="text-white font-semibold mt-2">
+        ⏲️ Waiting for {opponent?.username}'s turn
+      </p>
+    );
+
+  }
+
   const you = gameState.players.find((p) => p.isYou);
   const opponent = gameState.players.find((p) => !p.isYou);
 
@@ -483,18 +512,7 @@ function GameRoomContent() {
             Game #{gameState.gameId} • Status: {titleCase(gameState.status)} •
             Phase: {titleCase(gameState.phase)}
           </p>
-          {/* Don't turn indicator during waiting, initial_flip, or finished phases */}
-          {gameState.phase == "initial_flip" ||
-          gameState.phase == "waiting" ||
-          gameState.phase == "finished" ? (
-            <></>
-          ) : isYourTurn ? (
-            <p className="text-yellow-300 font-semibold mt-2">⭐ Your Turn</p>
-          ) : (
-            <p className="text-white font-semibold mt-2">
-              ⏲️ Waiting for {opponent?.username}'s turn
-            </p>
-          )}
+          {TurnIndicator(gameState, isYourTurn, true)}
           {errorMessage && (
             <div className="mt-2 p-3 bg-red-500/20 border border-red-500 rounded text-red-200">
               {errorMessage}
