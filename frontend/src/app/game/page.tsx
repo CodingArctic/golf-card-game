@@ -530,7 +530,7 @@ function GameRoomContent() {
             {/* Opponent cards */}
             <div className="w-full md:w-auto px-4 md:px-0">
               <div className="text-white mb-2 md:mb-4">
-                <h2 className="text-base sm:text-lg md:text-xl font-semibold">
+                <h2 className="text-xl font-semibold">
                   {opponent?.username || "Waiting for opponent..."}
                 </h2>
                 {opponent?.score !== null && opponent?.score !== undefined && (
@@ -672,7 +672,7 @@ function GameRoomContent() {
             {/* Your cards */}
             <div className="w-full md:w-auto px-4 md:px-0">
               <div className="text-white mb-2 md:mb-4">
-                <h2 className="text-base sm:text-lg md:text-xl font-semibold">
+                <h2 className="text-xl font-semibold">
                   {`${you?.username} (You)`}
                 </h2>
                 {you?.score !== null && you?.score !== undefined && (
