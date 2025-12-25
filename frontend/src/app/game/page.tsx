@@ -690,6 +690,7 @@ function GameRoomContent() {
             {/* Your cards */}
             <div className="w-full md:w-auto px-4 md:px-0">
               <div className="text-white mb-2 md:mb-4">
+                {TurnIndicator(gameState, isYourTurn, false)}
                 <h2 className="text-xl font-semibold">
                   {`${you?.username} (You)`}
                 </h2>
@@ -758,13 +759,12 @@ function GameRoomContent() {
                 type="button"
                 onClick={handleRematch}
                 disabled={rematchLoading || rematchRequested}
-                className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${
-                  rematchInvitations.length > 0
-                    ? "bg-green-600 hover:bg-green-700 text-white animate-pulse"
-                    : rematchRequested
-                      ? "bg-gray-500 text-gray-300 cursor-not-allowed"
-                      : "bg-purple-600 hover:bg-purple-700 text-white"
-                }`}
+                className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${rematchInvitations.length > 0
+                  ? "bg-green-600 hover:bg-green-700 text-white animate-pulse"
+                  : rematchRequested
+                    ? "bg-gray-500 text-gray-300 cursor-not-allowed"
+                    : "bg-purple-600 hover:bg-purple-700 text-white"
+                  }`}
               >
                 {rematchLoading ? (
                   "Creating Rematch..."
