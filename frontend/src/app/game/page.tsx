@@ -432,6 +432,35 @@ function GameRoomContent() {
     );
   }
 
+  const TurnIndicator = (gameState: GameState, isYourTurn: boolean, isHeader: boolean) => {
+    let width = window.innerWidth;
+
+    // check width + location of turn indicator for conditional rendering
+    if (width <= 768 && isHeader) {
+      return <></>
+    }
+    if (width > 768 && !isHeader) {
+      return <></>
+    }
+
+    if (gameState.phase == "initial_flip" ||
+      gameState.phase == "waiting" ||
+      gameState.phase == "finished") {
+      return <></>
+    }
+
+    if (isYourTurn) {
+      return <p className="text-yellow-300 font-semibold mt-2">⭐ Your Turn</p>
+    }
+
+    return (
+      <p className="text-white font-semibold mt-2">
+        ⏲️ Waiting for {opponent?.username}'s turn
+      </p>
+    );
+
+  }
+
   const you = gameState.players.find((p) => p.isYou);
   const opponent = gameState.players.find((p) => !p.isYou);
 
@@ -483,18 +512,7 @@ function GameRoomContent() {
             Game #{gameState.gameId} • Status: {titleCase(gameState.status)} •
             Phase: {titleCase(gameState.phase)}
           </p>
-          {/* Don't turn indicator during waiting, initial_flip, or finished phases */}
-          {gameState.phase == "initial_flip" ||
-          gameState.phase == "waiting" ||
-          gameState.phase == "finished" ? (
-            <></>
-          ) : isYourTurn ? (
-            <p className="text-yellow-300 font-semibold mt-2">⭐ Your Turn</p>
-          ) : (
-            <p className="text-white font-semibold mt-2">
-              ⏲️ Waiting for {opponent?.username}'s turn
-            </p>
-          )}
+          {TurnIndicator(gameState, isYourTurn, true)}
           {errorMessage && (
             <div className="mt-2 p-3 bg-red-500/20 border border-red-500 rounded text-red-200">
               {errorMessage}
@@ -530,7 +548,7 @@ function GameRoomContent() {
             {/* Opponent cards */}
             <div className="w-full md:w-auto px-4 md:px-0">
               <div className="text-white mb-2 md:mb-4">
-                <h2 className="text-base sm:text-lg md:text-xl font-semibold">
+                <h2 className="text-xl font-semibold">
                   {opponent?.username || "Waiting for opponent..."}
                 </h2>
                 {opponent?.score !== null && opponent?.score !== undefined && (
@@ -672,7 +690,8 @@ function GameRoomContent() {
             {/* Your cards */}
             <div className="w-full md:w-auto px-4 md:px-0">
               <div className="text-white mb-2 md:mb-4">
-                <h2 className="text-base sm:text-lg md:text-xl font-semibold">
+                {TurnIndicator(gameState, isYourTurn, false)}
+                <h2 className="text-xl font-semibold">
                   {`${you?.username} (You)`}
                 </h2>
                 {you?.score !== null && you?.score !== undefined && (
@@ -740,13 +759,12 @@ function GameRoomContent() {
                 type="button"
                 onClick={handleRematch}
                 disabled={rematchLoading || rematchRequested}
-                className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${
-                  rematchInvitations.length > 0
-                    ? "bg-green-600 hover:bg-green-700 text-white animate-pulse"
-                    : rematchRequested
-                      ? "bg-gray-500 text-gray-300 cursor-not-allowed"
-                      : "bg-purple-600 hover:bg-purple-700 text-white"
-                }`}
+                className={`w-full px-6 py-3 rounded-lg font-semibold transition-colors ${rematchInvitations.length > 0
+                  ? "bg-green-600 hover:bg-green-700 text-white animate-pulse"
+                  : rematchRequested
+                    ? "bg-gray-500 text-gray-300 cursor-not-allowed"
+                    : "bg-purple-600 hover:bg-purple-700 text-white"
+                  }`}
               >
                 {rematchLoading ? (
                   "Creating Rematch..."
