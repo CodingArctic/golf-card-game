@@ -28,6 +28,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # Environment (production/development)
+      ENV: production
+      
       # Database connection
       CONNECTION_STRING: postgres://golfer:${POSTGRES_PASSWORD_ENCODED}@postgres:5432/golf?sslmode=disable
       
