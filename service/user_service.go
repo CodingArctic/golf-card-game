@@ -147,13 +147,13 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set cookie (HttpOnly for security; Secure would be added if served over HTTPS)
+	// Set cookie (HttpOnly for security; Secure in production with HTTPS)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session",
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		// Secure: true, // enable when using HTTPS
+		Secure:   isProduction(), // true in production (HTTPS), false in local dev (HTTP)
 		// Lax mode allows cross-site "safe" requests like GET, but not POST
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   86400, // 24 hours in seconds
@@ -180,12 +180,19 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		// Secure:   true, // enable when using HTTPS
+		Secure:   isProduction(), // true in production (HTTPS), false in local dev (HTTP)
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1, // Delete cookie
 	})
 
 	jsonResponse(w, http.StatusOK, map[string]string{"message": "Logged out successfully"})
+}
+
+// isProduction checks if we're running in production mode
+// In production, cookies should have the Secure flag set
+func isProduction() bool {
+	env := os.Getenv("ENV")
+	return env == "production" || env == "prod"
 }
 
 // getClientIP extracts the client's IP address from the request
