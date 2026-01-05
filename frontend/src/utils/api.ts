@@ -135,7 +135,6 @@ export async function logoutUser(): Promise<ApiResponse<{ message: string }>> {
 // Game API functions
 
 export interface Game {
-  gameId: number;
   publicId: string;
   createdBy: string;
   createdAt: string;
@@ -145,7 +144,6 @@ export interface Game {
 }
 
 export interface GameInvitation {
-  gameId: number;
   publicId: string;
   gamePlayerId: number;
   invitedBy: string;
@@ -163,9 +161,9 @@ export interface GameListResponse {
  * @returns A promise that resolves to the created game info
  */
 export async function createGame(): Promise<
-  ApiResponse<{ gameId: number; publicId: string; status: string }>
+  ApiResponse<{ publicId: string; status: string }>
 > {
-  return fetchApi<{ gameId: number; publicId: string; status: string }>(
+  return fetchApi<{ publicId: string; status: string }>(
     "/game/create",
     {
       method: "POST",
@@ -175,45 +173,45 @@ export async function createGame(): Promise<
 
 /**
  * Invites a player to a game
- * @param gameId - The game ID
+ * @param publicId - The game public ID
  * @param invitedUsername - The username to invite
  * @returns A promise that resolves to the invitation response
  */
 export async function invitePlayer(
-  gameId: number,
+  publicId: string,
   invitedUsername: string,
 ): Promise<ApiResponse<{ message: string }>> {
   return fetchApi<{ message: string }>("/game/invite", {
     method: "POST",
-    body: JSON.stringify({ gameId, invitedUsername }),
+    body: JSON.stringify({ publicId, invitedUsername }),
   });
 }
 
 /**
  * Accepts a game invitation
- * @param gameId - The game ID to accept
+ * @param publicId - The game public ID to accept
  * @returns A promise that resolves to the acceptance response
  */
 export async function acceptInvitation(
-  gameId: number,
+  publicId: string,
 ): Promise<ApiResponse<{ message: string }>> {
   return fetchApi<{ message: string }>("/game/accept", {
     method: "POST",
-    body: JSON.stringify({ gameId }),
+    body: JSON.stringify({ publicId }),
   });
 }
 
 /**
  * Declines a game invitation
- * @param gameId - The game ID to decline
+ * @param publicId - The game public ID to decline
  * @returns A promise that resolves to the decline response
  */
 export async function declineInvitation(
-  gameId: number,
+  publicId: string,
 ): Promise<ApiResponse<{ message: string }>> {
   return fetchApi<{ message: string }>("/game/decline", {
     method: "POST",
-    body: JSON.stringify({ gameId }),
+    body: JSON.stringify({ publicId }),
   });
 }
 
