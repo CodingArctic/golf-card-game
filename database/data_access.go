@@ -48,6 +48,8 @@ type GameRepository interface {
 	SaveGameState(ctx context.Context, publicID string, stateJSON []byte) error
 	LoadGameState(ctx context.Context, publicID string) ([]byte, int, error)
 	UpdateGameState(ctx context.Context, publicID string, stateJSON []byte, expectedVersion int) error
+	GetInactiveGames(ctx context.Context, inactiveDuration time.Duration) ([]*Game, error)
+	DeleteGame(ctx context.Context, publicID string) error
 }
 
 type ChatMessage struct {
@@ -521,4 +523,85 @@ func (r *postgresGameRepo) UpdateGameState(ctx context.Context, publicID string,
 	}
 
 	return nil
+}
+
+// GetInactiveGames returns games that haven't been updated in the specified duration
+// This queries games that are not finished and haven't had state updates recently
+func (r *postgresGameRepo) GetInactiveGames(ctx context.Context, inactiveDuration time.Duration) ([]*Game, error) {
+	cutoffTime := time.Now().Add(-inactiveDuration)
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT g.game_id, g.public_id, g.created_by, g.created_at, g.status, 
+		        g.max_players, g.player_count, g.finished_at, g.winner_user_id
+		 FROM games g
+		 LEFT JOIN game_states gs ON g.game_id = gs.game_id
+		 WHERE g.status != 'finished' 
+		   AND (gs.last_updated < $1 OR (gs.last_updated IS NULL AND g.created_at < $1))
+		 ORDER BY g.created_at`,
+		cutoffTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var games []*Game
+	for rows.Next() {
+		var game Game
+		err := rows.Scan(&game.GameID, &game.PublicID, &game.CreatedBy, &game.CreatedAt,
+			&game.Status, &game.MaxPlayers, &game.PlayerCount, &game.FinishedAt, &game.WinnerUserID)
+		if err != nil {
+			return nil, err
+		}
+		games = append(games, &game)
+	}
+
+	return games, rows.Err()
+}
+
+// DeleteGame removes a game and all related records (players, state, chat messages)
+func (r *postgresGameRepo) DeleteGame(ctx context.Context, publicID string) error {
+	// Start a transaction to ensure all deletes succeed together
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Get the game_id first
+	var gameID int
+	err = tx.QueryRow(ctx, `SELECT game_id FROM games WHERE public_id = $1`, publicID).Scan(&gameID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors.New("game not found")
+		}
+		return err
+	}
+
+	// Delete related records in order (foreign key constraints)
+	// 1. Chat messages
+	_, err = tx.Exec(ctx, `DELETE FROM chat_messages WHERE game_id = $1`, gameID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Game state
+	_, err = tx.Exec(ctx, `DELETE FROM game_states WHERE game_id = $1`, gameID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Game players
+	_, err = tx.Exec(ctx, `DELETE FROM game_players WHERE game_id = $1`, gameID)
+	if err != nil {
+		return err
+	}
+
+	// 4. Finally, the game itself
+	_, err = tx.Exec(ctx, `DELETE FROM games WHERE game_id = $1`, gameID)
+	if err != nil {
+		return err
+	}
+
+	// Commit the transaction
+	return tx.Commit(ctx)
 }
