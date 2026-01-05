@@ -35,20 +35,19 @@ type ChatRepository interface {
 
 type GameRepository interface {
 	CreateGame(ctx context.Context, createdByUserID string, maxPlayers int) (*Game, error)
-	GetGameByID(ctx context.Context, gameID int) (*Game, error)
 	GetGameByPublicID(ctx context.Context, publicID string) (*Game, error)
-	AddPlayer(ctx context.Context, gameID int, userID string, orderIndex int) error
-	DeletePlayer(ctx context.Context, gameID int, userID string) error
-	UpdatePlayerStatus(ctx context.Context, gameID int, userID string, isActive bool, joinedAt *time.Time) error
-	UpdatePlayerScore(ctx context.Context, gameID int, userID string, score int) error
-	GetGamePlayers(ctx context.Context, gameID int) ([]*GamePlayer, error)
+	AddPlayer(ctx context.Context, publicID string, userID string, orderIndex int) error
+	DeletePlayer(ctx context.Context, publicID string, userID string) error
+	UpdatePlayerStatus(ctx context.Context, publicID string, userID string, isActive bool, joinedAt *time.Time) error
+	UpdatePlayerScore(ctx context.Context, publicID string, userID string, score int) error
+	GetGamePlayers(ctx context.Context, publicID string) ([]*GamePlayer, error)
 	GetPendingInvitations(ctx context.Context, userID string) ([]*GameInvitation, error)
 	GetActiveGames(ctx context.Context, userID string) ([]*Game, error)
-	UpdateGameStatus(ctx context.Context, gameID int, status string) error
-	FinishGame(ctx context.Context, gameID int, winnerUserID string) error
-	SaveGameState(ctx context.Context, gameID int, stateJSON []byte) error
-	LoadGameState(ctx context.Context, gameID int) ([]byte, int, error)
-	UpdateGameState(ctx context.Context, gameID int, stateJSON []byte, expectedVersion int) error
+	UpdateGameStatus(ctx context.Context, publicID string, status string) error
+	FinishGame(ctx context.Context, publicID string, winnerUserID string) error
+	SaveGameState(ctx context.Context, publicID string, stateJSON []byte) error
+	LoadGameState(ctx context.Context, publicID string) ([]byte, int, error)
+	UpdateGameState(ctx context.Context, publicID string, stateJSON []byte, expectedVersion int) error
 }
 
 type ChatMessage struct {
@@ -61,7 +60,7 @@ type ChatMessage struct {
 }
 
 type Game struct {
-	GameID       int        `json:"gameId"`
+	GameID       int        `json:"-"`
 	PublicID     string     `json:"publicId"`
 	CreatedBy    string     `json:"createdBy"`
 	CreatedAt    time.Time  `json:"createdAt"`
@@ -85,7 +84,7 @@ type GamePlayer struct {
 }
 
 type GameInvitation struct {
-	GameID            int       `json:"gameId"`
+	GameID            int       `json:"-"`
 	PublicID          string    `json:"publicId"`
 	GamePlayerID      int       `json:"gamePlayerId"`
 	InvitedBy         string    `json:"invitedBy"`
@@ -324,19 +323,6 @@ func (r *postgresGameRepo) CreateGame(ctx context.Context, createdByUserID strin
 	return &game, nil
 }
 
-func (r *postgresGameRepo) GetGameByID(ctx context.Context, gameID int) (*Game, error) {
-	var game Game
-	err := r.pool.QueryRow(ctx,
-		`SELECT game_id, public_id, created_by, created_at, status, max_players, player_count, finished_at, winner_user_id
-		 FROM games WHERE game_id = $1`,
-		gameID).
-		Scan(&game.GameID, &game.PublicID, &game.CreatedBy, &game.CreatedAt, &game.Status, &game.MaxPlayers, &game.PlayerCount, &game.FinishedAt, &game.WinnerUserID)
-	if err != nil {
-		return nil, err
-	}
-	return &game, nil
-}
-
 func (r *postgresGameRepo) GetGameByPublicID(ctx context.Context, publicID string) (*Game, error) {
 	var game Game
 	err := r.pool.QueryRow(ctx,
@@ -350,40 +336,40 @@ func (r *postgresGameRepo) GetGameByPublicID(ctx context.Context, publicID strin
 	return &game, nil
 }
 
-func (r *postgresGameRepo) AddPlayer(ctx context.Context, gameID int, userID string, orderIndex int) error {
+func (r *postgresGameRepo) AddPlayer(ctx context.Context, publicID string, userID string, orderIndex int) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO game_players (game_id, user_id, order_index, is_active, joined_at) 
-		 VALUES ($1, $2, $3, false, NULL)`,
-		gameID, userID, orderIndex)
+		 VALUES ((SELECT game_id FROM games WHERE public_id = $1), $2, $3, false, NULL)`,
+		publicID, userID, orderIndex)
 	return err
 }
 
-func (r *postgresGameRepo) UpdatePlayerStatus(ctx context.Context, gameID int, userID string, isActive bool, joinedAt *time.Time) error {
+func (r *postgresGameRepo) UpdatePlayerStatus(ctx context.Context, publicID string, userID string, isActive bool, joinedAt *time.Time) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE game_players 
 		 SET is_active = $3, joined_at = $4
-		 WHERE game_id = $1 AND user_id = $2`,
-		gameID, userID, isActive, joinedAt)
+		 WHERE game_id = (SELECT game_id FROM games WHERE public_id = $1) AND user_id = $2`,
+		publicID, userID, isActive, joinedAt)
 	return err
 }
 
-func (r *postgresGameRepo) DeletePlayer(ctx context.Context, gameID int, userID string) error {
+func (r *postgresGameRepo) DeletePlayer(ctx context.Context, publicID string, userID string) error {
 	_, err := r.pool.Exec(ctx,
 		`DELETE FROM game_players 
-		 WHERE game_id = $1 AND user_id = $2`,
-		gameID, userID)
+		 WHERE game_id = (SELECT game_id FROM games WHERE public_id = $1) AND user_id = $2`,
+		publicID, userID)
 	return err
 }
 
-func (r *postgresGameRepo) GetGamePlayers(ctx context.Context, gameID int) ([]*GamePlayer, error) {
+func (r *postgresGameRepo) GetGamePlayers(ctx context.Context, publicID string) ([]*GamePlayer, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT gp.game_player_id, gp.game_id, gp.user_id, u.username, gp.order_index, 
 		        gp.joined_at, gp.left_at, gp.score, gp.is_active
 		 FROM game_players gp
 		 JOIN users u ON gp.user_id = u.user_id
-		 WHERE gp.game_id = $1
+		 WHERE gp.game_id = (SELECT game_id FROM games WHERE public_id = $1)
 		 ORDER BY gp.order_index`,
-		gameID)
+		publicID)
 	if err != nil {
 		return nil, err
 	}
@@ -465,49 +451,49 @@ func (r *postgresGameRepo) GetActiveGames(ctx context.Context, userID string) ([
 	return games, rows.Err()
 }
 
-func (r *postgresGameRepo) UpdateGameStatus(ctx context.Context, gameID int, status string) error {
+func (r *postgresGameRepo) UpdateGameStatus(ctx context.Context, publicID string, status string) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE games SET status = $2 WHERE game_id = $1`,
-		gameID, status)
+		`UPDATE games SET status = $2 WHERE public_id = $1`,
+		publicID, status)
 	return err
 }
 
 // UpdatePlayerScore updates a player's final score
-func (r *postgresGameRepo) UpdatePlayerScore(ctx context.Context, gameID int, userID string, score int) error {
+func (r *postgresGameRepo) UpdatePlayerScore(ctx context.Context, publicID string, userID string, score int) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE game_players SET score = $3 WHERE game_id = $1 AND user_id = $2`,
-		gameID, userID, score)
+		`UPDATE game_players SET score = $3 WHERE game_id = (SELECT game_id FROM games WHERE public_id = $1) AND user_id = $2`,
+		publicID, userID, score)
 	return err
 }
 
 // FinishGame marks a game as finished with winner and timestamp
-func (r *postgresGameRepo) FinishGame(ctx context.Context, gameID int, winnerUserID string) error {
+func (r *postgresGameRepo) FinishGame(ctx context.Context, publicID string, winnerUserID string) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE games SET status = 'finished', finished_at = now(), winner_user_id = $2 WHERE game_id = $1`,
-		gameID, winnerUserID)
+		`UPDATE games SET status = 'finished', finished_at = now(), winner_user_id = $2 WHERE public_id = $1`,
+		publicID, winnerUserID)
 	return err
 }
 
 // SaveGameState creates the initial game state record
-func (r *postgresGameRepo) SaveGameState(ctx context.Context, gameID int, stateJSON []byte) error {
+func (r *postgresGameRepo) SaveGameState(ctx context.Context, publicID string, stateJSON []byte) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO game_states (game_id, state_json, version) 
-		 VALUES ($1, $2, 1)`,
-		gameID, stateJSON)
+		 VALUES ((SELECT game_id FROM games WHERE public_id = $1), $2, 1)`,
+		publicID, stateJSON)
 	return err
 }
 
 // LoadGameState retrieves the current game state and version
-func (r *postgresGameRepo) LoadGameState(ctx context.Context, gameID int) ([]byte, int, error) {
+func (r *postgresGameRepo) LoadGameState(ctx context.Context, publicID string) ([]byte, int, error) {
 	var stateJSON []byte
 	var version int
 	err := r.pool.QueryRow(ctx,
 		`SELECT state_json, version 
 		 FROM game_states 
-		 WHERE game_id = $1 
+		 WHERE game_id = (SELECT game_id FROM games WHERE public_id = $1) 
 		 ORDER BY last_updated DESC 
 		 LIMIT 1`,
-		gameID).
+		publicID).
 		Scan(&stateJSON, &version)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -519,12 +505,12 @@ func (r *postgresGameRepo) LoadGameState(ctx context.Context, gameID int) ([]byt
 }
 
 // UpdateGameState updates the game state with optimistic locking
-func (r *postgresGameRepo) UpdateGameState(ctx context.Context, gameID int, stateJSON []byte, expectedVersion int) error {
+func (r *postgresGameRepo) UpdateGameState(ctx context.Context, publicID string, stateJSON []byte, expectedVersion int) error {
 	result, err := r.pool.Exec(ctx,
 		`UPDATE game_states 
 		 SET state_json = $2, version = version + 1, last_updated = now() 
-		 WHERE game_id = $1 AND version = $3`,
-		gameID, stateJSON, expectedVersion)
+		 WHERE game_id = (SELECT game_id FROM games WHERE public_id = $1) AND version = $3`,
+		publicID, stateJSON, expectedVersion)
 	if err != nil {
 		return err
 	}
