@@ -63,7 +63,7 @@ type PlayerState struct {
 
 // FullGameState represents the complete state of a game
 type FullGameState struct {
-	GameID           int           `json:"gameId"`
+	PublicID         string        `json:"publicId"`
 	Phase            GamePhase     `json:"phase"`
 	Deck             []CardDef     `json:"deck"`             // Remaining cards to draw from
 	DiscardPile      []CardDef     `json:"discardPile"`      // Face-up discard stack (last card is top)
@@ -91,19 +91,19 @@ func (s *GameService) CreateGame(ctx context.Context, createdByUserID string) (*
 	}
 
 	// Add creator as first player (order_index = 0, is_active = true, joined immediately)
-	err = s.gameRepo.AddPlayer(ctx, game.GameID, createdByUserID, 0)
+	err = s.gameRepo.AddPlayer(ctx, game.PublicID, createdByUserID, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add creator to game: %w", err)
 	}
 
 	now := time.Now()
-	err = s.gameRepo.UpdatePlayerStatus(ctx, game.GameID, createdByUserID, true, &now)
+	err = s.gameRepo.UpdatePlayerStatus(ctx, game.PublicID, createdByUserID, true, &now)
 	if err != nil {
 		return nil, fmt.Errorf("failed to activate creator: %w", err)
 	}
 
 	// Reload game to get updated player count
-	game, err = s.gameRepo.GetGameByID(ctx, game.GameID)
+	game, err = s.gameRepo.GetGameByPublicID(ctx, game.PublicID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reload game: %w", err)
 	}
@@ -112,7 +112,7 @@ func (s *GameService) CreateGame(ctx context.Context, createdByUserID string) (*
 }
 
 // InvitePlayer adds a player to the game as a pending invitation
-func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserID, inviterUserID string) error {
+func (s *GameService) InvitePlayer(ctx context.Context, publicID string, invitedUserID, inviterUserID string) error {
 	// Validate inviter is not inviting themselves
 	if invitedUserID == inviterUserID {
 		return ErrCannotInviteSelf
@@ -125,7 +125,7 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 	}
 
 	// Get game and validate
-	game, err := s.gameRepo.GetGameByID(ctx, gameID)
+	game, err := s.gameRepo.GetGameByPublicID(ctx, publicID)
 	if err != nil {
 		return ErrGameNotFound
 	}
@@ -135,7 +135,7 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 	}
 
 	// Get current players
-	players, err := s.gameRepo.GetGamePlayers(ctx, gameID)
+	players, err := s.gameRepo.GetGamePlayers(ctx, publicID)
 	if err != nil {
 		return fmt.Errorf("failed to get game players: %w", err)
 	}
@@ -171,7 +171,7 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 	// Add player with is_active=false, joined_at=NULL (pending invitation)
 	// Order index is based on current player count
 	orderIndex := len(players)
-	err = s.gameRepo.AddPlayer(ctx, gameID, invitedUserID, orderIndex)
+	err = s.gameRepo.AddPlayer(ctx, publicID, invitedUserID, orderIndex)
 	if err != nil {
 		return fmt.Errorf("failed to invite player: %w", err)
 	}
@@ -180,9 +180,9 @@ func (s *GameService) InvitePlayer(ctx context.Context, gameID int, invitedUserI
 }
 
 // AcceptInvitation activates a player's participation in a game
-func (s *GameService) AcceptInvitation(ctx context.Context, gameID int, userID string) error {
+func (s *GameService) AcceptInvitation(ctx context.Context, publicID string, userID string) error {
 	// Get game
-	game, err := s.gameRepo.GetGameByID(ctx, gameID)
+	game, err := s.gameRepo.GetGameByPublicID(ctx, publicID)
 	if err != nil {
 		return ErrGameNotFound
 	}
@@ -192,7 +192,7 @@ func (s *GameService) AcceptInvitation(ctx context.Context, gameID int, userID s
 	}
 
 	// Get players
-	players, err := s.gameRepo.GetGamePlayers(ctx, gameID)
+	players, err := s.gameRepo.GetGamePlayers(ctx, publicID)
 	if err != nil {
 		return fmt.Errorf("failed to get game players: %w", err)
 	}
@@ -216,7 +216,7 @@ func (s *GameService) AcceptInvitation(ctx context.Context, gameID int, userID s
 
 	// Activate the player
 	now := time.Now()
-	err = s.gameRepo.UpdatePlayerStatus(ctx, gameID, userID, true, &now)
+	err = s.gameRepo.UpdatePlayerStatus(ctx, publicID, userID, true, &now)
 	if err != nil {
 		return fmt.Errorf("failed to accept invitation: %w", err)
 	}
@@ -231,7 +231,7 @@ func (s *GameService) AcceptInvitation(ctx context.Context, gameID int, userID s
 
 	// If we now have max players, start the game
 	if activeCount >= game.MaxPlayers {
-		err = s.gameRepo.UpdateGameStatus(ctx, gameID, "in_progress")
+		err = s.gameRepo.UpdateGameStatus(ctx, publicID, "in_progress")
 		if err != nil {
 			return fmt.Errorf("failed to start game: %w", err)
 		}
@@ -241,9 +241,9 @@ func (s *GameService) AcceptInvitation(ctx context.Context, gameID int, userID s
 }
 
 // DeclineInvitation removes a pending invitation
-func (s *GameService) DeclineInvitation(ctx context.Context, gameID int, userID string) error {
+func (s *GameService) DeclineInvitation(ctx context.Context, publicID string, userID string) error {
 	// Get players
-	players, err := s.gameRepo.GetGamePlayers(ctx, gameID)
+	players, err := s.gameRepo.GetGamePlayers(ctx, publicID)
 	if err != nil {
 		return fmt.Errorf("failed to get game players: %w", err)
 	}
@@ -266,7 +266,7 @@ func (s *GameService) DeclineInvitation(ctx context.Context, gameID int, userID 
 	}
 
 	// Delete the player record entirely since they declined
-	err = s.gameRepo.DeletePlayer(ctx, gameID, userID)
+	err = s.gameRepo.DeletePlayer(ctx, publicID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to decline invitation: %w", err)
 	}
@@ -275,13 +275,13 @@ func (s *GameService) DeclineInvitation(ctx context.Context, gameID int, userID 
 }
 
 // GetGameWithPlayers retrieves a game and its players
-func (s *GameService) GetGameWithPlayers(ctx context.Context, gameID int) (*database.Game, []*database.GamePlayer, error) {
-	game, err := s.gameRepo.GetGameByID(ctx, gameID)
+func (s *GameService) GetGameWithPlayers(ctx context.Context, publicID string) (*database.Game, []*database.GamePlayer, error) {
+	game, err := s.gameRepo.GetGameByPublicID(ctx, publicID)
 	if err != nil {
 		return nil, nil, ErrGameNotFound
 	}
 
-	players, err := s.gameRepo.GetGamePlayers(ctx, gameID)
+	players, err := s.gameRepo.GetGamePlayers(ctx, publicID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get players: %w", err)
 	}
@@ -317,8 +317,8 @@ func (s *GameService) GetGameByPublicID(ctx context.Context, publicID string) (*
 }
 
 // ValidateUserInGame checks if a user is an active player in a game
-func (s *GameService) ValidateUserInGame(ctx context.Context, gameID int, userID string) (bool, error) {
-	players, err := s.gameRepo.GetGamePlayers(ctx, gameID)
+func (s *GameService) ValidateUserInGame(ctx context.Context, publicID string, userID string) (bool, error) {
+	players, err := s.gameRepo.GetGamePlayers(ctx, publicID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get players: %w", err)
 	}
@@ -378,7 +378,7 @@ func randInt(n int) int {
 }
 
 // InitializeGame creates the initial game state when all players have joined
-func (s *GameService) InitializeGame(ctx context.Context, gameID int, playerUserIDs []string) (*FullGameState, error) {
+func (s *GameService) InitializeGame(ctx context.Context, publicID string, playerUserIDs []string) (*FullGameState, error) {
 	if len(playerUserIDs) != 2 {
 		return nil, errors.New("game requires exactly 2 players")
 	}
@@ -410,7 +410,7 @@ func (s *GameService) InitializeGame(ctx context.Context, gameID int, playerUser
 
 	// Create initial game state
 	state := &FullGameState{
-		GameID:           gameID,
+		PublicID:         publicID,
 		Phase:            PhaseInitialFlip,
 		Deck:             deck,
 		DiscardPile:      discardPile,
@@ -799,14 +799,14 @@ func (s *GameService) FinishGame(ctx context.Context, state *FullGameState) (str
 
 	// Update player scores in database
 	for userID, score := range scores {
-		err := s.gameRepo.UpdatePlayerScore(ctx, state.GameID, userID, score)
+		err := s.gameRepo.UpdatePlayerScore(ctx, state.PublicID, userID, score)
 		if err != nil {
 			return "", fmt.Errorf("failed to update player score: %w", err)
 		}
 	}
 
 	// Update game status to finished with winner and timestamp
-	err := s.gameRepo.FinishGame(ctx, state.GameID, winnerUserID)
+	err := s.gameRepo.FinishGame(ctx, state.PublicID, winnerUserID)
 	if err != nil {
 		return "", fmt.Errorf("failed to finish game: %w", err)
 	}
