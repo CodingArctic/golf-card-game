@@ -14,6 +14,7 @@ import {
   type GameInvitation,
   type Game,
 } from "@/utils/api";
+import { formatGameId } from "@/utils/gameId";
 
 interface Message {
   id: string;
@@ -30,7 +31,7 @@ export default function DashPage() {
   const [activeGames, setActiveGames] = useState<Game[]>([]);
   const [inviteUsername, setInviteUsername] = useState("");
   const [selectedGameForInvite, setSelectedGameForInvite] = useState<
-    number | null
+    string | null
   >(null);
   const [onlinePlayers, setOnlinePlayers] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -122,7 +123,7 @@ export default function DashPage() {
       setError(response.error);
     } else if (response.data) {
       setSuccess("Game created successfully!");
-      setSelectedGameForInvite(response.data.gameId);
+      setSelectedGameForInvite(response.data.publicId);
       await loadGames();
     }
   };
@@ -144,24 +145,24 @@ export default function DashPage() {
     }
   };
 
-  const handleAcceptInvitation = async (gameId: number) => {
+  const handleAcceptInvitation = async (publicId: string) => {
     setError("");
     setSuccess("");
-    const response = await acceptInvitation(gameId);
+    const response = await acceptInvitation(publicId);
     if (response.error) {
       setError(response.error);
     } else {
       setSuccess("Invitation accepted!");
       await loadGames();
       // Navigate to game room
-      router.push(`/game?gameId=${gameId}`);
+      router.push(`/game?id=${publicId}`);
     }
   };
 
-  const handleDeclineInvitation = async (gameId: number) => {
+  const handleDeclineInvitation = async (publicId: string) => {
     setError("");
     setSuccess("");
-    const response = await declineInvitation(gameId);
+    const response = await declineInvitation(publicId);
     if (response.error) {
       setError(response.error);
     } else {
@@ -170,8 +171,8 @@ export default function DashPage() {
     }
   };
 
-  const handleJoinGame = (gameId: number) => {
-    router.push(`/game?gameId=${gameId}`);
+  const handleJoinGame = (publicId: string) => {
+    router.push(`/game?id=${publicId}`);
   };
 
   function connectWebSocket() {
@@ -244,7 +245,7 @@ export default function DashPage() {
           setSuccess(`${payload.inviteeUsername} accepted your invitation!`);
           // Reload games and navigate to the game room
           loadGames();
-          router.push(`/game?gameId=${payload.gameId}`);
+          router.push(`/game?id=${payload.publicId}`);
         } else if (lobbyMessage.type === "invitation_declined") {
           // Handle invitation declined
           const payload = lobbyMessage.payload;
@@ -429,14 +430,14 @@ export default function DashPage() {
                 value={selectedGameForInvite ?? ""}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setSelectedGameForInvite(value === "" ? null : Number(value));
+                  setSelectedGameForInvite(value === "" ? null : value);
                 }}
                 className="w-full sm:w-auto px-3 py-2 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select a game...</option>
                 {activeGames.map((game) => (
-                  <option key={game.gameId} value={game.gameId}>
-                    Game #{game.gameId} - {titleCase(game.status)} (
+                  <option key={game.publicId} value={game.publicId}>
+                    {formatGameId(game.publicId)} - {titleCase(game.status)} (
                     {game.playerCount}/{game.maxPlayers} players)
                   </option>
                 ))}
@@ -473,12 +474,12 @@ export default function DashPage() {
             <div className="space-y-3">
               {invitations.map((invitation) => (
                 <div
-                  key={invitation.gameId}
+                  key={invitation.publicId}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded"
                 >
                   <div>
                     <p className="text-gray-900 dark:text-white font-medium">
-                      Game #{invitation.gameId}
+                      {formatGameId(invitation.publicId)}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Invited by {invitation.invitedByUsername}
@@ -486,13 +487,13 @@ export default function DashPage() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleAcceptInvitation(invitation.gameId)}
+                      onClick={() => handleAcceptInvitation(invitation.publicId)}
                       className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                     >
                       Accept
                     </button>
                     <button
-                      onClick={() => handleDeclineInvitation(invitation.gameId)}
+                      onClick={() => handleDeclineInvitation(invitation.publicId)}
                       className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                     >
                       Decline
@@ -513,12 +514,12 @@ export default function DashPage() {
             <div className="space-y-3">
               {activeGames.map((game) => (
                 <div
-                  key={game.gameId}
+                  key={game.publicId}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded"
                 >
                   <div>
                     <p className="text-gray-900 dark:text-white font-medium">
-                      Game #{game.gameId}
+                      {formatGameId(game.publicId)}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Status: {titleCase(game.status)} • Players:{" "}
@@ -526,7 +527,7 @@ export default function DashPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => handleJoinGame(game.gameId)}
+                    onClick={() => handleJoinGame(game.publicId)}
                     className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                   >
                     Join Game
