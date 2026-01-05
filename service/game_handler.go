@@ -8,7 +8,6 @@ import (
 	"golf-card-game/database"
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -17,14 +16,14 @@ import (
 
 // GameHub manages WebSocket connections for all game rooms
 type GameHub struct {
-	// Map of gameID to room
-	rooms map[int]*GameRoom
+	// Map of publicID to room
+	rooms map[string]*GameRoom
 	mu    sync.RWMutex
 }
 
 // GameRoom represents a single game instance with its connected players
 type GameRoom struct {
-	gameID     int
+	publicID   string
 	clients    map[*websocket.Conn]string // conn -> userID
 	broadcast  chan GameMessage
 	register   chan *gameClientRegistration
@@ -54,7 +53,7 @@ type ChatPayload struct {
 
 // GameStatePayload represents the current state of the game
 type GameStatePayload struct {
-	GameID          int          `json:"gameId"`
+	PublicID        string       `json:"publicId"`
 	Status          string       `json:"status"`
 	Phase           string       `json:"phase"`
 	CurrentPlayerID string       `json:"currentPlayerId"`
@@ -100,7 +99,7 @@ type ErrorPayload struct {
 
 // Global game hub instance
 var GameHubInstance = &GameHub{
-	rooms: make(map[int]*GameRoom),
+	rooms: make(map[string]*GameRoom),
 }
 
 var gameRepo database.GameRepository
@@ -115,17 +114,17 @@ func SetGameService(gs *business.GameService) {
 }
 
 // GetOrCreateRoom returns an existing room or creates a new one
-func (h *GameHub) GetOrCreateRoom(gameID int) *GameRoom {
+func (h *GameHub) GetOrCreateRoom(publicID string) *GameRoom {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if room, exists := h.rooms[gameID]; exists {
+	if room, exists := h.rooms[publicID]; exists {
 		return room
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	room := &GameRoom{
-		gameID:     gameID,
+		publicID:   publicID,
 		clients:    make(map[*websocket.Conn]string),
 		broadcast:  make(chan GameMessage, 256),
 		register:   make(chan *gameClientRegistration),
@@ -134,20 +133,20 @@ func (h *GameHub) GetOrCreateRoom(gameID int) *GameRoom {
 		cancel:     cancel,
 	}
 
-	h.rooms[gameID] = room
+	h.rooms[publicID] = room
 	go room.Run()
 
 	return room
 }
 
 // CloseRoom shuts down a game room
-func (h *GameHub) CloseRoom(gameID int) {
+func (h *GameHub) CloseRoom(publicID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if room, exists := h.rooms[gameID]; exists {
+	if room, exists := h.rooms[publicID]; exists {
 		room.cancel()
-		delete(h.rooms, gameID)
+		delete(h.rooms, publicID)
 	}
 }
 
@@ -181,14 +180,14 @@ func (r *GameRoom) Run() {
 
 			// Load or initialize game state
 			var state *business.FullGameState
-			stateJSON, _, err := gameRepo.LoadGameState(ctx, r.gameID)
+			stateJSON, _, err := gameRepo.LoadGameState(ctx, r.publicID)
 
 			if err != nil {
 				// No state exists yet - check if we should initialize
-				game, err := gameRepo.GetGameByID(ctx, r.gameID)
+				game, err := gameRepo.GetGameByPublicID(ctx, r.publicID)
 				if err == nil && game.Status == "in_progress" {
 					// Game just started, initialize the state
-					players, err := gameRepo.GetGamePlayers(ctx, r.gameID)
+					players, err := gameRepo.GetGamePlayers(ctx, r.publicID)
 					if err == nil {
 						activePlayers := []string{}
 						for _, p := range players {
@@ -198,11 +197,11 @@ func (r *GameRoom) Run() {
 						}
 
 						if len(activePlayers) == 2 {
-							newState, err := gameService.InitializeGame(ctx, r.gameID, activePlayers)
+							newState, err := gameService.InitializeGame(ctx, r.publicID, activePlayers)
 							if err == nil {
 								// Save the initial state
 								stateJSON, _ := json.Marshal(newState)
-								if err := gameRepo.SaveGameState(ctx, r.gameID, stateJSON); err == nil {
+								if err := gameRepo.SaveGameState(ctx, r.publicID, stateJSON); err == nil {
 									state = newState
 								}
 							}
@@ -213,11 +212,12 @@ func (r *GameRoom) Run() {
 				// Parse existing state
 				var parsedState business.FullGameState
 				if err := json.Unmarshal(stateJSON, &parsedState); err == nil {
+					parsedState.PublicID = r.publicID // Ensure PublicID is set
 					state = &parsedState
 				}
 			}
 
-			broadcastGameState(r, r.gameID, state)
+			broadcastGameState(r, r.publicID, state)
 
 		case conn := <-r.unregister:
 			r.mu.Lock()
@@ -237,7 +237,7 @@ func (r *GameRoom) Run() {
 			r.mu.RLock()
 			for client := range r.clients {
 				if err := client.WriteJSON(message); err != nil {
-					log.Printf("Error broadcasting to client in game %d: %v", r.gameID, err)
+					log.Printf("Error broadcasting to client in game %s: %v", r.publicID, err)
 					client.Close()
 					delete(r.clients, client)
 				}
@@ -253,20 +253,20 @@ func (r *GameRoom) sendGameState(conn *websocket.Conn, userID string) {
 	}
 
 	ctx := context.Background()
-	game, err := gameRepo.GetGameByID(ctx, r.gameID)
+	game, err := gameRepo.GetGameByPublicID(ctx, r.publicID)
 	if err != nil {
 		log.Printf("Error getting game: %v", err)
 		return
 	}
 
-	players, err := gameRepo.GetGamePlayers(ctx, r.gameID)
+	players, err := gameRepo.GetGamePlayers(ctx, r.publicID)
 	if err != nil {
 		log.Printf("Error getting players: %v", err)
 		return
 	}
 
 	// Try to load existing game state
-	stateJSON, _, err := gameRepo.LoadGameState(ctx, r.gameID)
+	stateJSON, _, err := gameRepo.LoadGameState(ctx, r.publicID)
 	var state *business.FullGameState
 
 	if err != nil {
@@ -281,7 +281,7 @@ func (r *GameRoom) sendGameState(conn *websocket.Conn, userID string) {
 			}
 
 			if len(activePlayers) == 2 {
-				newState, err := gameService.InitializeGame(ctx, r.gameID, activePlayers)
+				newState, err := gameService.InitializeGame(ctx, r.publicID, activePlayers)
 				if err != nil {
 					log.Printf("Error initializing game: %v", err)
 					return
@@ -289,7 +289,7 @@ func (r *GameRoom) sendGameState(conn *websocket.Conn, userID string) {
 
 				// Save the initial state
 				stateJSON, _ := json.Marshal(newState)
-				if err := gameRepo.SaveGameState(ctx, r.gameID, stateJSON); err != nil {
+				if err := gameRepo.SaveGameState(ctx, r.publicID, stateJSON); err != nil {
 					log.Printf("Error saving initial state: %v", err)
 					return
 				}
@@ -312,6 +312,7 @@ func (r *GameRoom) sendGameState(conn *websocket.Conn, userID string) {
 			log.Printf("Error parsing game state: %v", err)
 			return
 		}
+		parsedState.PublicID = r.publicID // Ensure PublicID is set
 		state = &parsedState
 	}
 
@@ -334,7 +335,7 @@ func (r *GameRoom) sendChatHistory(conn *websocket.Conn) {
 	}
 
 	ctx := context.Background()
-	scope := fmt.Sprintf("game:%d", r.gameID)
+	scope := fmt.Sprintf("game:%s", r.publicID)
 	messages, err := chatRepo.GetMessagesByScope(ctx, scope, 50)
 	if err != nil {
 		log.Printf("Error fetching game chat history: %v", err)
@@ -387,14 +388,13 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract gameID from URL path - expecting /api/ws/game/{gameId}
-	// Parse game ID from path
+	// Extract publicID from URL path - expecting /api/ws/game/{publicId}
+	// Parse public ID from path
 	path := r.URL.Path
-	var gameIDStr string
-	fmt.Sscanf(path, "/api/ws/game/%s", &gameIDStr)
+	var publicID string
+	fmt.Sscanf(path, "/api/ws/game/%s", &publicID)
 
-	gameID, err := strconv.Atoi(gameIDStr)
-	if err != nil {
+	if publicID == "" {
 		http.Error(w, "Invalid game ID", http.StatusBadRequest)
 		return
 	}
@@ -405,7 +405,7 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inGame, err := gameService.ValidateUserInGame(ctx, gameID, userID)
+	inGame, err := gameService.ValidateUserInGame(ctx, publicID, userID)
 	if err != nil {
 		log.Printf("Error validating user in game: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -432,7 +432,7 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get or create room for this game
-	room := GameHubInstance.GetOrCreateRoom(gameID)
+	room := GameHubInstance.GetOrCreateRoom(publicID)
 
 	// Register client
 	room.register <- &gameClientRegistration{
@@ -496,13 +496,13 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 
 			// Validate message length (max 500 characters)
 			if len(chatPayload.Message) > 500 {
-				log.Printf("Message too long from user %s in game %d: %d characters", userID, gameID, len(chatPayload.Message))
+				log.Printf("Message too long from user %s in game %s: %d characters", userID, publicID, len(chatPayload.Message))
 				continue
 			}
 
 			// Save message to database with game scope
 			if chatRepo != nil {
-				scope := fmt.Sprintf("game:%d", gameID)
+				scope := fmt.Sprintf("game:%s", publicID)
 				savedMsg, err := chatRepo.SaveMessage(ctx, userID, scope, chatPayload.Message)
 				if err != nil {
 					log.Printf("Error saving game chat message: %v", err)
@@ -532,7 +532,7 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Load current game state
-			stateJSON, version, err := gameRepo.LoadGameState(context.Background(), gameID)
+			stateJSON, version, err := gameRepo.LoadGameState(context.Background(), publicID)
 			if err != nil {
 				log.Printf("Failed to load game state: %v", err)
 				sendError(conn, "Failed to load game state")
@@ -545,6 +545,7 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 				sendError(conn, "Failed to parse game state")
 				continue
 			}
+			state.PublicID = publicID // Ensure PublicID is set
 
 			// Execute action based on type
 			var actionErr error
@@ -599,7 +600,7 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			err = gameRepo.UpdateGameState(context.Background(), gameID, updatedStateJSON, version)
+			err = gameRepo.UpdateGameState(context.Background(), publicID, updatedStateJSON, version)
 			if err != nil {
 				log.Printf("Failed to update game state: %v", err)
 				sendError(conn, "Failed to save game state (version conflict)")
@@ -612,19 +613,19 @@ func GameWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					log.Printf("Failed to finish game: %v", err)
 				} else {
-					log.Printf("Game %d finished, winner: %s", gameID, winnerUserID)
+					log.Printf("Game %s finished, winner: %s", publicID, winnerUserID)
 
 					// Save state again after flipping remaining cards
 					finalStateJSON, _ := json.Marshal(state)
-					gameRepo.UpdateGameState(context.Background(), gameID, finalStateJSON, version+1)
+					gameRepo.UpdateGameState(context.Background(), publicID, finalStateJSON, version+1)
 
 					// Broadcast game end notification
-					broadcastGameEnd(room, gameID, &state, winnerUserID)
+					broadcastGameEnd(room, publicID, &state, winnerUserID)
 				}
 			}
 
 			// Broadcast updated state to all players
-			broadcastGameState(room, gameID, &state)
+			broadcastGameState(room, publicID, &state)
 
 		default:
 			log.Printf("Unknown message type: %s", msg.Type)
@@ -645,16 +646,16 @@ func sendError(conn *websocket.Conn, errorMsg string) {
 }
 
 // broadcastGameState broadcasts the current game state to all clients in the room
-func broadcastGameState(room *GameRoom, gameID int, state *business.FullGameState) {
+func broadcastGameState(room *GameRoom, publicID string, state *business.FullGameState) {
 	// Get game from database for status
-	game, err := gameRepo.GetGameByID(context.Background(), gameID)
+	game, err := gameRepo.GetGameByPublicID(context.Background(), publicID)
 	if err != nil {
 		log.Printf("Failed to get game: %v", err)
 		return
 	}
 
 	// Get players with usernames
-	players, err := gameRepo.GetGamePlayers(context.Background(), gameID)
+	players, err := gameRepo.GetGamePlayers(context.Background(), publicID)
 	if err != nil {
 		log.Printf("Failed to get players: %v", err)
 		return
@@ -686,9 +687,9 @@ type GameEndPayload struct {
 }
 
 // broadcastGameEnd sends game end notification to all players
-func broadcastGameEnd(room *GameRoom, gameID int, state *business.FullGameState, winnerUserID string) {
+func broadcastGameEnd(room *GameRoom, publicID string, state *business.FullGameState, winnerUserID string) {
 	// Get players to get usernames
-	players, err := gameRepo.GetGamePlayers(context.Background(), gameID)
+	players, err := gameRepo.GetGamePlayers(context.Background(), publicID)
 	if err != nil {
 		log.Printf("Failed to get players: %v", err)
 		return
@@ -747,7 +748,7 @@ func buildGameStatePayload(game *database.Game, state *business.FullGameState, d
 	// If no game state yet (waiting for players), return minimal payload
 	if state == nil {
 		return GameStatePayload{
-			GameID:          game.GameID,
+			PublicID:        game.PublicID,
 			Status:          game.Status,
 			Phase:           "waiting",
 			CurrentPlayerID: "",
@@ -822,7 +823,7 @@ func buildGameStatePayload(game *database.Game, state *business.FullGameState, d
 	}
 
 	return GameStatePayload{
-		GameID:          game.GameID,
+		PublicID:        game.PublicID,
 		Status:          game.Status,
 		Phase:           string(state.Phase),
 		CurrentPlayerID: currentPlayerID,

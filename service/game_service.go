@@ -5,7 +5,6 @@ import (
 	"golf-card-game/business"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 // CreateGameHandler creates a new game
@@ -35,7 +34,6 @@ func CreateGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, http.StatusCreated, map[string]interface{}{
-		"gameId":   game.GameID,
 		"publicId": game.PublicID,
 		"status":   game.Status,
 	})
@@ -56,7 +54,7 @@ func InvitePlayerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		GameID          int    `json:"gameId"`
+		PublicID        string `json:"publicId"`
 		InvitedUsername string `json:"invitedUsername"`
 	}
 
@@ -82,7 +80,7 @@ func InvitePlayerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = gameService.InvitePlayer(ctx, req.GameID, invitedUser.UserID, userID)
+	err = gameService.InvitePlayer(ctx, req.PublicID, invitedUser.UserID, userID)
 	if err != nil {
 		switch err {
 		case business.ErrCannotInviteSelf:
@@ -105,7 +103,7 @@ func InvitePlayerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game details for the notification
-	game, _, err := gameService.GetGameWithPlayers(ctx, req.GameID)
+	game, _, err := gameService.GetGameWithPlayers(ctx, req.PublicID)
 	if err == nil {
 		// Get inviter username
 		inviter, err := userService.GetUserByID(ctx, userID)
@@ -114,7 +112,6 @@ func InvitePlayerHandler(w http.ResponseWriter, r *http.Request) {
 			Hub.SendNotificationToUser(invitedUser.UserID, LobbyMessage{
 				Type: "invitation_received",
 				Payload: InvitationPayload{
-					GameID:          game.GameID,
 					PublicID:        game.PublicID,
 					InviterUsername: inviter.Username,
 				},
@@ -140,7 +137,7 @@ func AcceptInvitationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		GameID int `json:"gameId"`
+		PublicID string `json:"publicId"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -153,7 +150,7 @@ func AcceptInvitationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := gameService.AcceptInvitation(ctx, req.GameID, userID)
+	err := gameService.AcceptInvitation(ctx, req.PublicID, userID)
 	if err != nil {
 		switch err {
 		case business.ErrGameNotFound:
@@ -172,7 +169,7 @@ func AcceptInvitationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game details and notify all active players
-	game, players, err := gameService.GetGameWithPlayers(ctx, req.GameID)
+	game, players, err := gameService.GetGameWithPlayers(ctx, req.PublicID)
 	if err == nil {
 		// Get acceptor username
 		acceptor, err := userService.GetUserByID(ctx, userID)
@@ -183,7 +180,6 @@ func AcceptInvitationHandler(w http.ResponseWriter, r *http.Request) {
 					Hub.SendNotificationToUser(player.UserID, LobbyMessage{
 						Type: "invitation_accepted",
 						Payload: InvitationPayload{
-							GameID:          game.GameID,
 							PublicID:        game.PublicID,
 							InviteeUsername: acceptor.Username,
 						},
@@ -211,7 +207,7 @@ func DeclineInvitationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		GameID int `json:"gameId"`
+		PublicID string `json:"publicId"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -224,7 +220,7 @@ func DeclineInvitationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := gameService.DeclineInvitation(ctx, req.GameID, userID)
+	err := gameService.DeclineInvitation(ctx, req.PublicID, userID)
 	if err != nil {
 		switch err {
 		case business.ErrGameNotFound:
@@ -239,7 +235,7 @@ func DeclineInvitationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get game details and notify all active players
-	game, players, err := gameService.GetGameWithPlayers(ctx, req.GameID)
+	game, players, err := gameService.GetGameWithPlayers(ctx, req.PublicID)
 	if err == nil {
 		// Get decliner username
 		decliner, err := userService.GetUserByID(ctx, userID)
@@ -250,7 +246,6 @@ func DeclineInvitationHandler(w http.ResponseWriter, r *http.Request) {
 					Hub.SendNotificationToUser(player.UserID, LobbyMessage{
 						Type: "invitation_declined",
 						Payload: InvitationPayload{
-							GameID:          game.GameID,
 							PublicID:        game.PublicID,
 							InviteeUsername: decliner.Username,
 						},
@@ -318,16 +313,10 @@ func GetGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse game ID from query parameter
-	gameIDStr := r.URL.Query().Get("gameId")
-	if gameIDStr == "" {
-		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "GameId query parameter is required"})
-		return
-	}
-
-	gameID, err := strconv.Atoi(gameIDStr)
-	if err != nil {
-		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid gameId"})
+	// Parse public ID from query parameter
+	publicID := r.URL.Query().Get("publicId")
+	if publicID == "" {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "publicId query parameter is required"})
 		return
 	}
 
@@ -337,7 +326,7 @@ func GetGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate user has access to this game
-	inGame, err := gameService.ValidateUserInGame(ctx, gameID, userID)
+	inGame, err := gameService.ValidateUserInGame(ctx, publicID, userID)
 	if err != nil {
 		log.Printf("Error validating user in game: %v", err)
 		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to validate access"})
@@ -348,7 +337,7 @@ func GetGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game, players, err := gameService.GetGameWithPlayers(ctx, gameID)
+	game, players, err := gameService.GetGameWithPlayers(ctx, publicID)
 	if err != nil {
 		if err == business.ErrGameNotFound {
 			jsonResponse(w, http.StatusNotFound, map[string]string{"error": "Game not found"})
