@@ -10,6 +10,7 @@ import {
   listGames,
   type GameInvitation,
 } from "@/utils/api";
+import { formatGameId } from "@/utils/gameId";
 
 interface CardData {
   suit: string;
@@ -26,7 +27,7 @@ interface PlayerInfo {
 }
 
 interface GameState {
-  gameId: number;
+  publicId: string;
   status: string;
   phase: string;
   currentPlayerId: string;
@@ -60,7 +61,7 @@ interface GameEndData {
 function GameRoomContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const gameId = searchParams.get("gameId");
+  const publicId = searchParams.get("id");
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -118,13 +119,13 @@ function GameRoomContent() {
       // If there's already a rematch invitation from another player, accept it instead
       if (rematchInvitations.length > 0) {
         const invitation = rematchInvitations[0];
-        const acceptResponse = await acceptInvitation(invitation.gameId);
+        const acceptResponse = await acceptInvitation(invitation.publicId);
         if (acceptResponse.error) {
           setErrorMessage(acceptResponse.error);
           return;
         }
         setGameEndData(null); // Clear the game over modal
-        router.push(`/game?gameId=${invitation.gameId}`);
+        router.push(`/game?id=${invitation.publicId}`);
         return;
       }
 
@@ -152,13 +153,13 @@ function GameRoomContent() {
             );
             if (freshRematchInvites.length > 0) {
               const invitation = freshRematchInvites[0];
-              const acceptResponse = await acceptInvitation(invitation.gameId);
+              const acceptResponse = await acceptInvitation(invitation.publicId);
               if (acceptResponse.error) {
                 setErrorMessage(acceptResponse.error);
                 return;
               }
               setGameEndData(null); // Clear the game over modal
-              router.push(`/game?gameId=${invitation.gameId}`);
+              router.push(`/game?id=${invitation.publicId}`);
               return;
             }
           }
@@ -174,7 +175,7 @@ function GameRoomContent() {
         return;
       }
 
-      const newGameId = createResponse.data.gameId;
+      const newPublicId = createResponse.data.publicId;
 
       // Final check: did someone create a game while we were creating ours?
       // Use fresh data from API, not state
@@ -191,13 +192,13 @@ function GameRoomContent() {
           // Note: We've created a game but haven't invited anyone yet,
           // so it will just be an empty waiting game
           const invitation = freshRematchInvites[0];
-          const acceptResponse = await acceptInvitation(invitation.gameId);
+          const acceptResponse = await acceptInvitation(invitation.publicId);
           if (acceptResponse.error) {
             setErrorMessage(acceptResponse.error);
             return;
           }
           setGameEndData(null); // Clear the game over modal
-          router.push(`/game?gameId=${invitation.gameId}`);
+          router.push(`/game?id=${invitation.publicId}`);
           return;
         }
       }
@@ -205,14 +206,14 @@ function GameRoomContent() {
       // Invite all other players from the finished game
       const invitePromises = gameState.players
         .filter((player) => player.userId !== gameState.currentUserId)
-        .map((player) => invitePlayer(newGameId, player.username));
+        .map((player) => invitePlayer(newPublicId, player.username));
 
       await Promise.all(invitePromises);
       setRematchRequested(true);
 
       // Navigate to the new game
       setGameEndData(null); // Clear the game over modal
-      router.push(`/game?gameId=${newGameId}`);
+      router.push(`/game?id=${newPublicId}`);
     } catch (error) {
       setErrorMessage("Failed to create rematch");
     } finally {
@@ -224,7 +225,7 @@ function GameRoomContent() {
     scrollToBottom();
   }, [messages]);
 
-  // Reset rematch state when gameId changes (new game started)
+  // Reset rematch state when publicId changes (new game started)
   useEffect(() => {
     setRematchRequested(false);
     setRematchInvitations([]);
@@ -234,7 +235,7 @@ function GameRoomContent() {
     setDiscardMode(false);
     setGameState(null);
     setMessages([]);
-  }, [gameId]);
+  }, [publicId]);
 
   // Check for rematch invitations when game ends
   useEffect(() => {
@@ -247,7 +248,7 @@ function GameRoomContent() {
   }, [gameEndData, gameState]);
 
   useEffect(() => {
-    if (!gameId) {
+    if (!publicId) {
       router.push("/dash");
       return;
     }
@@ -262,7 +263,7 @@ function GameRoomContent() {
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/ws/game/${gameId}`;
+    const wsUrl = `${protocol}//${window.location.host}/api/ws/game/${publicId}`;
 
     wsRef.current = new WebSocket(wsUrl);
 
@@ -331,7 +332,7 @@ function GameRoomContent() {
         wsRef.current = null;
       }
     };
-  }, [gameId, router]);
+  }, [publicId, router]);
 
   const sendMessage = () => {
     if (!messageInput.trim() || !wsRef.current) return;
@@ -420,7 +421,7 @@ function GameRoomContent() {
     }
   }, [gameState?.drawnCard]);
 
-  if (!gameId) {
+  if (!publicId) {
     return null;
   }
 
@@ -509,7 +510,7 @@ function GameRoomContent() {
             Golf Card Game
           </h1>
           <p className="text-green-200">
-            Game #{gameState.gameId} • Status: {titleCase(gameState.status)} •
+            {formatGameId(gameState.publicId)} • Status: {titleCase(gameState.status)} •
             Phase: {titleCase(gameState.phase)}
           </p>
           {TurnIndicator(gameState, isYourTurn, true)}
