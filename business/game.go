@@ -823,3 +823,31 @@ func GetFinalScores(state *FullGameState) map[string]int {
 	}
 	return scores
 }
+
+// CleanupInactiveGames removes games that haven't had any activity for the specified duration
+// Returns the number of games cleaned up and any error encountered
+func (s *GameService) CleanupInactiveGames(ctx context.Context, inactiveDuration time.Duration) (int, error) {
+	// Get all inactive games
+	inactiveGames, err := s.gameRepo.GetInactiveGames(ctx, inactiveDuration)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get inactive games: %w", err)
+	}
+
+	if len(inactiveGames) == 0 {
+		return 0, nil
+	}
+
+	// Delete each inactive game
+	deletedCount := 0
+	for _, game := range inactiveGames {
+		err := s.gameRepo.DeleteGame(ctx, game.PublicID)
+		if err != nil {
+			// Log the error but continue with other games
+			fmt.Printf("failed to delete game %s: %v\n", game.PublicID, err)
+			continue
+		}
+		deletedCount++
+	}
+
+	return deletedCount, nil
+}
